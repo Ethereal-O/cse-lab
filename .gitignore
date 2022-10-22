@@ -27,7 +27,6 @@ chfs_client1.log
 # Compiled Static libraries
 *.lai
 *.la
-*.a
 *.lib
 
 # Executables
