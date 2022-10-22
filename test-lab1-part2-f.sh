@@ -31,12 +31,12 @@ do
     #ok this section is maybe a bit cruel here... I'll comment it out
     #
     #----------------------------------------------------------------------
-    #if ( ! ( bash test-lab1-part2-e.sh $1 | grep -q -i "Passed BLOB test" ));
-    #then
+    # if ( ! ( bash test-lab1-part2-e.sh $1 | grep -q -i "Passed BLOB test" ));
+    # then
     #    echo "failed test E chfs1"
     #    exit
-    #fi
-    #rm ${1}/* 2>&1 >/dev/null
+    # fi
+    # rm ${1}/* 2>&1 >/dev/null
     #
 done
 

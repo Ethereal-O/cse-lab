@@ -157,7 +157,7 @@ test_if_has_mount
 
 # finally reaches here!
 #echo "Passed all tests!"
-
+robust
 ./stop.sh
 echo ""
 echo "Part2 score: "$score"/100"
