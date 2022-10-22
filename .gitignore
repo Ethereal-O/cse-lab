@@ -1,5 +1,7 @@
 # vscode
 .vscode/
+# log
+chfs_client1.log
 # Prerequisites
 *.d
 
