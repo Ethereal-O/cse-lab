@@ -10,21 +10,29 @@
 #include "chfs_client.h"
 #include "extent_client.h"
 
-/* 
+#define LAB2_PART2
+
+/*
  * Your code here for Lab2A:
- * Here we treat each ChFS operation(especially write operation such as 'create', 
- * 'write' and 'symlink') as a transaction, your job is to use write ahead log 
+ * Here we treat each ChFS operation(especially write operation such as 'create',
+ * 'write' and 'symlink') as a transaction, your job is to use write ahead log
  * to achive all-or-nothing for these transactions.
  */
 
 chfs_client::chfs_client()
 {
     ec = new extent_client();
+    txid = 0;
 }
 
 chfs_client::chfs_client(std::string extent_dst, std::string lock_dst)
 {
     ec = new extent_client();
+#ifdef LAB2_PART2
+    // log
+    txid++;
+    ec->putLog(txid, 1, "");
+#endif
     if (ec->put(1, "") != extent_protocol::OK)
         printf("error init root dir\n"); // XYB: init root dir
 }
@@ -145,8 +153,7 @@ release:
 
 // Only support set size of attr
 // Your code here for Lab2A: add logging to ensure atomicity
-int
-chfs_client::setattr(inum ino, size_t size)
+int chfs_client::setattr(inum ino, size_t size)
 {
     int r = OK;
 
@@ -174,6 +181,12 @@ chfs_client::setattr(inum ino, size_t size)
     if (a.size < size)
         buf.append(size - a.size, '\0');
 
+#ifdef LAB2_PART2
+    // log
+    txid++;
+    ec->putLog(txid, ino, buf.substr(0, size));
+#endif
+
     if (ec->put(ino, buf.substr(0, size)) != extent_protocol::OK)
     {
         r = IOERR;
@@ -184,8 +197,7 @@ chfs_client::setattr(inum ino, size_t size)
 }
 
 // Your code here for Lab2A: add logging to ensure atomicity
-int
-chfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
+int chfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
 {
     int r = OK;
 
@@ -231,6 +243,13 @@ chfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
     std::string newBuf((char *)&newDirOriginInfo, newDirOriginInfo.dir_entry_length);
     newBuf = buf + newBuf;
 
+#ifdef LAB2_PART2
+    // log
+    txid++;
+    ec->createLog(txid, extent_protocol::T_FILE, ino_out);
+    ec->putLog(txid, parent, newBuf);
+#endif
+
     if (ec->put(parent, newBuf) != extent_protocol::OK)
     {
         printf("error put, return not OK\n");
@@ -242,8 +261,7 @@ chfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_out)
 }
 
 // Your code here for Lab2A: add logging to ensure atomicity
-int
-chfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out)
+int chfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out)
 {
     int r = OK;
 
@@ -288,6 +306,13 @@ chfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out)
 
     std::string newBuf((char *)&newDirOriginInfo, newDirOriginInfo.dir_entry_length);
     newBuf = buf + newBuf;
+
+#ifdef LAB2_PART2
+    // log
+    txid++;
+    ec->createLog(txid, extent_protocol::T_DIR, ino_out);
+    ec->putLog(txid, parent, newBuf);
+#endif
 
     if (ec->put(parent, newBuf) != extent_protocol::OK)
     {
@@ -405,9 +430,8 @@ int chfs_client::read(inum ino, size_t size, off_t off, std::string &data)
 }
 
 // Your code here for Lab2A: add logging to ensure atomicity
-int
-chfs_client::write(inum ino, size_t size, off_t off, const char *data,
-        size_t &bytes_written)
+int chfs_client::write(inum ino, size_t size, off_t off, const char *data,
+                       size_t &bytes_written)
 {
     int r = OK;
 
@@ -446,6 +470,12 @@ chfs_client::write(inum ino, size_t size, off_t off, const char *data,
     }
     bytes_written = size;
 
+#ifdef LAB2_PART2
+    // log
+    txid++;
+    ec->putLog(txid, ino, buf);
+#endif
+
     if (ec->put(ino, buf) != extent_protocol::OK)
     {
         r = IOERR;
@@ -456,7 +486,7 @@ chfs_client::write(inum ino, size_t size, off_t off, const char *data,
 }
 
 // Your code here for Lab2A: add logging to ensure atomicity
-int chfs_client::unlink(inum parent,const char *name)
+int chfs_client::unlink(inum parent, const char *name)
 {
     int r = OK;
 
@@ -508,6 +538,13 @@ int chfs_client::unlink(inum parent,const char *name)
         return r;
     }
 
+#ifdef LAB2_PART2
+    // log
+    txid++;
+    ec->removeLog(txid, fileIno);
+    ec->putLog(txid, parent, newBuf);
+#endif
+
     if (ec->remove(fileIno) != extent_protocol::OK)
     {
         printf("error remove, return not OK\n");
@@ -554,6 +591,7 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
         return r;
     }
 
+#ifdef LAB2_PART1
     size_t bytes_written, linkSize = strlen(link);
     if (write(ino_out, linkSize, 0, link, bytes_written) != OK || bytes_written != linkSize)
     {
@@ -561,6 +599,16 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
         r = IOERR;
         return r;
     }
+#endif
+
+#ifdef LAB2_PART2
+    std::string linkBuf(link);
+    if (ec->put(ino_out, linkBuf) != extent_protocol::OK)
+    {
+        r = IOERR;
+        return r;
+    }
+#endif
 
     ext4_dir_entry newDirOriginInfo;
     newDirOriginInfo.inode_number = ino_out;
@@ -572,6 +620,14 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
 
     std::string newBuf((char *)&newDirOriginInfo, newDirOriginInfo.dir_entry_length);
     newBuf = buf + newBuf;
+
+#ifdef LAB2_PART2
+    // log
+    txid++;
+    ec->createLog(txid, extent_protocol::T_SYMLINK, ino_out);
+    ec->putLog(txid, ino_out, linkBuf);
+    ec->putLog(txid, parent, newBuf);
+#endif
 
     if (ec->put(parent, newBuf) != extent_protocol::OK)
     {

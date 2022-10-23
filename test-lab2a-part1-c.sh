@@ -43,6 +43,7 @@ echo "===== ChFS Crash =====\n"
 # pkill -SIGUSR1 chfs_client
 ./stop.sh
 if [ $? -ne 0 ];
+# if [ $? -eq -1 ];
 then 
     echo "Failed to crash ChFS: $!\n"
     exit
