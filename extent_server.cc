@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unordered_map>
 
 #include "extent_server.h"
 #include "persister.h"
@@ -21,8 +22,19 @@ extent_server::extent_server()
   // Your code here for Lab2A: recover data on startup
   isRecovering = true;
   _persister->restore_logdata();
+
+  // to check if the transaction is commited
+  std::unordered_map<uint32_t, bool> is_commited;
+  for (auto log : _persister->log_entries)
+    if (log.type == chfs_command::CMD_COMMIT)
+      is_commited.insert(std::make_pair(log.id, true));
+
   for (auto log : _persister->log_entries)
   {
+    // if the transaction isn't commited, continue
+    if (is_commited.find(log.id) == is_commited.end())
+      continue;
+
     extent_protocol::extentid_t id;
     int tmp;
     switch (log.type)
@@ -171,5 +183,17 @@ void extent_server::putLog(uint32_t txid, extent_protocol::extentid_t id, std::s
 void extent_server::removeLog(uint32_t txid, extent_protocol::extentid_t id, int &)
 {
   chfs_command log(chfs_command::CMD_REMOVE, txid, std::string((char *)&id, sizeof(id)));
+  _persister->append_log(log);
+}
+
+void extent_server::beginLog(uint32_t txid)
+{
+  chfs_command log(chfs_command::CMD_BEGIN, txid, std::string(""));
+  _persister->append_log(log);
+}
+
+void extent_server::commitLog(uint32_t txid)
+{
+  chfs_command log(chfs_command::CMD_COMMIT, txid, std::string(""));
   _persister->append_log(log);
 }

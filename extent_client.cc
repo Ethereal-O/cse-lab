@@ -71,3 +71,13 @@ void extent_client::removeLog(uint32_t txid, extent_protocol::extentid_t eid)
   int r;
   es->removeLog(txid, eid, r);
 }
+
+void extent_client::beginLog(uint32_t txid)
+{
+  es->beginLog(txid);
+}
+
+void extent_client::commitLog(uint32_t txid)
+{
+  es->commitLog(txid);
+}

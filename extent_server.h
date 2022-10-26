@@ -37,6 +37,8 @@ public:
   void createLog(uint32_t txid, uint32_t type, extent_protocol::extentid_t &id);
   void putLog(uint32_t txid, extent_protocol::extentid_t id, std::string, int &);
   void removeLog(uint32_t txid, extent_protocol::extentid_t id, int &);
+  void beginLog(uint32_t txid);
+  void commitLog(uint32_t txid);
 };
 
 #endif

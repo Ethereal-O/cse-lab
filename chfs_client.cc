@@ -31,7 +31,9 @@ chfs_client::chfs_client(std::string extent_dst, std::string lock_dst)
 #ifdef LAB2_PART2
     // log
     txid++;
+    ec->beginLog(txid);
     ec->putLog(txid, 1, "");
+    ec->commitLog(txid);
 #endif
     if (ec->put(1, "") != extent_protocol::OK)
         printf("error init root dir\n"); // XYB: init root dir
@@ -184,7 +186,9 @@ int chfs_client::setattr(inum ino, size_t size)
 #ifdef LAB2_PART2
     // log
     txid++;
+    ec->beginLog(txid);
     ec->putLog(txid, ino, buf.substr(0, size));
+    ec->commitLog(txid);
 #endif
 
     if (ec->put(ino, buf.substr(0, size)) != extent_protocol::OK)
@@ -246,8 +250,10 @@ int chfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_ou
 #ifdef LAB2_PART2
     // log
     txid++;
+    ec->beginLog(txid);
     ec->createLog(txid, extent_protocol::T_FILE, ino_out);
     ec->putLog(txid, parent, newBuf);
+    ec->commitLog(txid);
 #endif
 
     if (ec->put(parent, newBuf) != extent_protocol::OK)
@@ -310,8 +316,10 @@ int chfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out
 #ifdef LAB2_PART2
     // log
     txid++;
+    ec->beginLog(txid);
     ec->createLog(txid, extent_protocol::T_DIR, ino_out);
     ec->putLog(txid, parent, newBuf);
+    ec->commitLog(txid);
 #endif
 
     if (ec->put(parent, newBuf) != extent_protocol::OK)
@@ -473,7 +481,9 @@ int chfs_client::write(inum ino, size_t size, off_t off, const char *data,
 #ifdef LAB2_PART2
     // log
     txid++;
+    ec->beginLog(txid);
     ec->putLog(txid, ino, buf);
+    ec->commitLog(txid);
 #endif
 
     if (ec->put(ino, buf) != extent_protocol::OK)
@@ -541,8 +551,10 @@ int chfs_client::unlink(inum parent, const char *name)
 #ifdef LAB2_PART2
     // log
     txid++;
+    ec->beginLog(txid);
     ec->removeLog(txid, fileIno);
     ec->putLog(txid, parent, newBuf);
+    ec->commitLog(txid);
 #endif
 
     if (ec->remove(fileIno) != extent_protocol::OK)
@@ -624,9 +636,11 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
 #ifdef LAB2_PART2
     // log
     txid++;
+    ec->beginLog(txid);
     ec->createLog(txid, extent_protocol::T_SYMLINK, ino_out);
     ec->putLog(txid, ino_out, linkBuf);
     ec->putLog(txid, parent, newBuf);
+    ec->commitLog(txid);
 #endif
 
     if (ec->put(parent, newBuf) != extent_protocol::OK)
