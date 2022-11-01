@@ -15,13 +15,18 @@ class extent_client {
   extent_client(std::string dst);
 
   extent_protocol::status create(uint32_t type, extent_protocol::extentid_t &eid);
-  extent_protocol::status get(extent_protocol::extentid_t eid, 
-			                        std::string &buf);
-  extent_protocol::status getattr(extent_protocol::extentid_t eid, 
-				                          extent_protocol::attr &a);
+  extent_protocol::status get(extent_protocol::extentid_t eid,
+                              std::string &buf);
+  extent_protocol::status getattr(extent_protocol::extentid_t eid,
+                                  extent_protocol::attr &a);
   extent_protocol::status put(extent_protocol::extentid_t eid, std::string buf);
   extent_protocol::status remove(extent_protocol::extentid_t eid);
+
+  void createLog(uint32_t txid, uint32_t type, extent_protocol::extentid_t &eid);
+  void putLog(uint32_t txid, extent_protocol::extentid_t eid, std::string buf);
+  void removeLog(uint32_t txid, extent_protocol::extentid_t eid);
+  void beginLog(uint32_t txid);
+  void commitLog(uint32_t txid);
 };
 
-#endif 
-
+#endif

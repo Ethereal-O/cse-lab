@@ -34,8 +34,8 @@ extent_client::get(extent_protocol::extentid_t eid, std::string &buf)
 }
 
 extent_protocol::status
-extent_client::getattr(extent_protocol::extentid_t eid, 
-		       extent_protocol::attr &attr)
+extent_client::getattr(extent_protocol::extentid_t eid,
+                       extent_protocol::attr &attr)
 {
   extent_protocol::status ret = extent_protocol::OK;
   // Your lab2B part1 code goes here
@@ -58,4 +58,29 @@ extent_client::remove(extent_protocol::extentid_t eid)
   return ret;
 }
 
+void extent_client::createLog(uint32_t txid, uint32_t type, extent_protocol::extentid_t &id)
+{
+  es->createLog(txid, type, id);
+}
 
+void extent_client::putLog(uint32_t txid, extent_protocol::extentid_t eid, std::string buf)
+{
+  int r;
+  es->putLog(txid, eid, buf, r);
+}
+
+void extent_client::removeLog(uint32_t txid, extent_protocol::extentid_t eid)
+{
+  int r;
+  es->removeLog(txid, eid, r);
+}
+
+void extent_client::beginLog(uint32_t txid)
+{
+  es->beginLog(txid);
+}
+
+void extent_client::commitLog(uint32_t txid)
+{
+  es->commitLog(txid);
+}

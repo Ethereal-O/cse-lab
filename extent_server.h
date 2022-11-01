@@ -10,8 +10,9 @@
 #include "inode_manager.h"
 #include "persister.h"
 
-class extent_server {
- protected:
+class extent_server
+{
+protected:
 #if 0
   typedef struct extent {
     std::string data;
@@ -22,7 +23,7 @@ class extent_server {
   inode_manager *im;
   chfs_persister *_persister;
 
- public:
+public:
   extent_server();
 
   int create(uint32_t type, extent_protocol::extentid_t &id);
@@ -32,13 +33,12 @@ class extent_server {
   int remove(extent_protocol::extentid_t id, int &);
 
   // Your code here for lab2A: add logging APIs
+  bool isRecovering = false;
+  void createLog(uint32_t txid, uint32_t type, extent_protocol::extentid_t &id);
+  void putLog(uint32_t txid, extent_protocol::extentid_t id, std::string, int &);
+  void removeLog(uint32_t txid, extent_protocol::extentid_t id, int &);
+  void beginLog(uint32_t txid);
+  void commitLog(uint32_t txid);
 };
 
-#endif 
-
-
-
-
-
-
-
+#endif
