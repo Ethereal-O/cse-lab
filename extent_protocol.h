@@ -16,6 +16,12 @@ class extent_protocol {
     getattr,
     remove,
     create
+    // ,
+    // createLog,
+    // putLog,
+    // removeLog,
+    // beginLog,
+    // commitLog
   };
 
   enum types {

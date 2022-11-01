@@ -10,7 +10,8 @@
 #include "chfs_client.h"
 #include "extent_client.h"
 
-#define LAB2_PART2
+#define LAB2A_PART2
+// #define LAB2B_PART3
 
 /*
  * Your code here for Lab2A:
@@ -24,7 +25,7 @@ chfs_client::chfs_client(std::string extent_dst, std::string lock_dst)
     ec = new extent_client(extent_dst);
     lc = new lock_client(lock_dst);
     txid = 0;
-#ifdef LAB2_PART2
+#ifdef LAB2A_PART2
     // log
     txid++;
     ec->beginLog(txid);
@@ -161,25 +162,29 @@ int chfs_client::setattr(inum ino, size_t size)
      * according to the size (<, =, or >) content length.
      */
 
+#ifdef LAB2B_PART3
+    lc->acquire(ino);
+#endif
+
     printf("setattr %016llx\n", ino);
     extent_protocol::attr a;
+    std::string buf;
     if (ec->getattr(ino, a) != extent_protocol::OK)
     {
         r = IOERR;
-        return r;
+        goto final;
     }
 
-    std::string buf;
     if (ec->get(ino, buf) != extent_protocol::OK)
     {
         r = IOERR;
-        return r;
+        goto final;
     }
 
     if (a.size < size)
         buf.append(size - a.size, '\0');
 
-#ifdef LAB2_PART2
+#ifdef LAB2A_PART2
     // log
     txid++;
     ec->beginLog(txid);
@@ -190,8 +195,14 @@ int chfs_client::setattr(inum ino, size_t size)
     if (ec->put(ino, buf.substr(0, size)) != extent_protocol::OK)
     {
         r = IOERR;
-        return r;
+        goto final;
     }
+
+final:
+
+#ifdef LAB2B_PART3
+    lc->release(ino);
+#endif
 
     return r;
 }
@@ -217,22 +228,31 @@ int chfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_ou
         return r;
     }
 
+#ifdef LAB2B_PART3
+    lc->acquire(parent);
+#endif
+
     std::string buf;
+    ext4_dir_entry newDirOriginInfo;
+    std::string newBuf;
     if (ec->get(parent, buf) != extent_protocol::OK)
     {
         printf("error get, return not OK\n");
         r = IOERR;
-        return r;
+        goto final;
     }
 
     if (ec->create(extent_protocol::T_FILE, ino_out) != extent_protocol::OK)
     {
         printf("error create, return not OK\n");
         r = IOERR;
-        return r;
+        goto final;
     }
 
-    ext4_dir_entry newDirOriginInfo;
+#ifdef LAB2B_PART3
+    lc->acquire(ino_out);
+#endif
+
     newDirOriginInfo.inode_number = ino_out;
     newDirOriginInfo.dir_entry_length = EXT4_PREFIX_SIZE + strlen(name);
     newDirOriginInfo.file_name_length = strlen(name);
@@ -240,10 +260,10 @@ int chfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_ou
     memcpy(newDirOriginInfo.name, name, newDirOriginInfo.file_name_length);
     newDirOriginInfo.name[newDirOriginInfo.file_name_length] = 0;
 
-    std::string newBuf((char *)&newDirOriginInfo, newDirOriginInfo.dir_entry_length);
+    newBuf = std::string((char *)&newDirOriginInfo, newDirOriginInfo.dir_entry_length);
     newBuf = buf + newBuf;
 
-#ifdef LAB2_PART2
+#ifdef LAB2A_PART2
     // log
     txid++;
     ec->beginLog(txid);
@@ -256,8 +276,15 @@ int chfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_ou
     {
         printf("error put, return not OK\n");
         r = IOERR;
-        return r;
+        goto final;
     }
+
+final:
+
+#ifdef LAB2B_PART3
+    lc->release(parent);
+    lc->release(ino_out);
+#endif
 
     return r;
 }
@@ -283,22 +310,31 @@ int chfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out
         return r;
     }
 
+#ifdef LAB2B_PART3
+    lc->acquire(parent);
+#endif
+
     std::string buf;
+    ext4_dir_entry newDirOriginInfo;
+    std::string newBuf;
     if (ec->get(parent, buf) != extent_protocol::OK)
     {
         printf("error get, return not OK\n");
         r = IOERR;
-        return r;
+        goto final;
     }
 
     if (ec->create(extent_protocol::T_DIR, ino_out) != extent_protocol::OK)
     {
         printf("error create, return not OK\n");
         r = IOERR;
-        return r;
+        goto final;
     }
 
-    ext4_dir_entry newDirOriginInfo;
+#ifdef LAB2B_PART3
+    lc->acquire(ino_out);
+#endif
+
     newDirOriginInfo.inode_number = ino_out;
     newDirOriginInfo.dir_entry_length = EXT4_PREFIX_SIZE + strlen(name);
     newDirOriginInfo.file_name_length = strlen(name);
@@ -306,10 +342,10 @@ int chfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out
     memcpy(newDirOriginInfo.name, name, newDirOriginInfo.file_name_length);
     newDirOriginInfo.name[newDirOriginInfo.file_name_length] = 0;
 
-    std::string newBuf((char *)&newDirOriginInfo, newDirOriginInfo.dir_entry_length);
+    newBuf = std::string((char *)&newDirOriginInfo, newDirOriginInfo.dir_entry_length);
     newBuf = buf + newBuf;
 
-#ifdef LAB2_PART2
+#ifdef LAB2A_PART2
     // log
     txid++;
     ec->beginLog(txid);
@@ -322,8 +358,15 @@ int chfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out
     {
         printf("error put, return not OK\n");
         r = IOERR;
-        return r;
+        goto final;
     }
+
+final:
+
+#ifdef LAB2B_PART3
+    lc->release(parent);
+    lc->release(ino_out);
+#endif
 
     return r;
 }
@@ -348,11 +391,14 @@ int chfs_client::lookup(inum parent, const char *name, bool &found, inum &ino_ou
         {
             found = true;
             ino_out = (*iter).inum;
-            return r;
+            goto final;
         }
     }
 
     found = false;
+
+final:
+
     return r;
 }
 
@@ -366,30 +412,34 @@ int chfs_client::readdir(inum dir, std::list<dirent> &list)
      * and push the dirents to the list.
      */
 
+#ifdef LAB2B_PART3
+    lc->acquire(dir);
+#endif
+
     extent_protocol::attr a;
+    std::string buf;
+    std::size_t begin = 0;
     if (ec->getattr(dir, a) != extent_protocol::OK)
     {
         printf("error getting attr, return not OK\n");
         r = IOERR;
-        return r;
+        goto final;
     }
 
     if (a.type != extent_protocol::T_DIR)
     {
         printf("error, not a dir\n");
         r = IOERR;
-        return r;
+        goto final;
     }
 
-    std::string buf;
     if (ec->get(dir, buf) != extent_protocol::OK)
     {
         printf("error get, return not OK\n");
         r = IOERR;
-        return r;
+        goto final;
     }
 
-    std::size_t begin = 0;
     while (begin < buf.size())
     {
         ext4_dir_entry dirOriginInfo;
@@ -399,6 +449,12 @@ int chfs_client::readdir(inum dir, std::list<dirent> &list)
         list.push_back({std::string(dirOriginInfo.name), dirOriginInfo.inode_number});
         begin += dirOriginInfo.dir_entry_length;
     }
+
+final:
+
+#ifdef LAB2B_PART3
+    lc->release(dir);
+#endif
 
     return r;
 }
@@ -413,22 +469,25 @@ int chfs_client::read(inum ino, size_t size, off_t off, std::string &data)
      */
 
     extent_protocol::attr a;
+    std::string buf;
+    unsigned int maxSize;
     if (ec->getattr(ino, a) != extent_protocol::OK)
     {
         r = IOERR;
-        return r;
+        goto final;
     }
 
-    std::string buf;
     if (ec->get(ino, buf) != extent_protocol::OK)
     {
         r = IOERR;
-        return r;
+        goto final;
     }
 
-    unsigned int maxSize = (a.size - off) > 0 ? (a.size - off - size > 0 ? size : (a.size - off)) : 0;
+    maxSize = (a.size - off) > 0 ? (a.size - off - size > 0 ? size : (a.size - off)) : 0;
 
     data = maxSize > 0 ? std::string(buf.substr(off, maxSize)) : nullptr;
+
+final:
 
     return r;
 }
@@ -445,21 +504,26 @@ int chfs_client::write(inum ino, size_t size, off_t off, const char *data,
      * when off > length of original file, fill the holes with '\0'.
      */
 
+#ifdef LAB2B_PART3
+    lc->acquire(ino);
+#endif
+
     extent_protocol::attr a;
+    std::string buf;
+    std::string dataStr;
     if (ec->getattr(ino, a) != extent_protocol::OK)
     {
         r = IOERR;
-        return r;
+        goto final;
     }
 
-    std::string buf;
     if (ec->get(ino, buf) != extent_protocol::OK)
     {
         r = IOERR;
-        return r;
+        goto final;
     }
 
-    std::string dataStr = std::string(data, size);
+    dataStr = std::string(data, size);
     if (a.size >= off)
     {
         if (a.size >= off + size)
@@ -474,7 +538,7 @@ int chfs_client::write(inum ino, size_t size, off_t off, const char *data,
     }
     bytes_written = size;
 
-#ifdef LAB2_PART2
+#ifdef LAB2A_PART2
     // log
     txid++;
     ec->beginLog(txid);
@@ -485,8 +549,14 @@ int chfs_client::write(inum ino, size_t size, off_t off, const char *data,
     if (ec->put(ino, buf) != extent_protocol::OK)
     {
         r = IOERR;
-        return r;
+        goto final;
     }
+
+final:
+
+#ifdef LAB2B_PART3
+    lc->release(ino);
+#endif
 
     return r;
 }
@@ -501,19 +571,22 @@ int chfs_client::unlink(inum parent, const char *name)
      * note: you should remove the file using ec->remove,
      * and update the parent directory content.
      */
+#ifdef LAB2B_PART3
+    lc->acquire(parent);
+#endif
 
     std::string buf;
-    if (ec->get(parent, buf) != extent_protocol::OK)
-    {
-        printf("error get, return not OK\n");
-        r = IOERR;
-        return r;
-    }
-
     std::string newBuf;
     std::size_t begin = 0;
     bool found = false;
     inum fileIno;
+    if (ec->get(parent, buf) != extent_protocol::OK)
+    {
+        printf("error get, return not OK\n");
+        r = IOERR;
+        goto final;
+    }
+
     while (begin < buf.size())
     {
         ext4_dir_entry dirOriginInfo;
@@ -541,10 +614,10 @@ int chfs_client::unlink(inum parent, const char *name)
     if (!found)
     {
         r = NOENT;
-        return r;
+        goto final;
     }
 
-#ifdef LAB2_PART2
+#ifdef LAB2A_PART2
     // log
     txid++;
     ec->beginLog(txid);
@@ -553,19 +626,30 @@ int chfs_client::unlink(inum parent, const char *name)
     ec->commitLog(txid);
 #endif
 
+#ifdef LAB2B_PART3
+    lc->acquire(fileIno);
+#endif
+
     if (ec->remove(fileIno) != extent_protocol::OK)
     {
         printf("error remove, return not OK\n");
         r = IOERR;
-        return r;
+        goto final;
     }
 
     if (ec->put(parent, newBuf) != extent_protocol::OK)
     {
         printf("error put, return not OK\n");
         r = IOERR;
-        return r;
+        goto final;
     }
+
+final:
+
+#ifdef LAB2B_PART3
+    lc->release(parent);
+    lc->release(fileIno);
+#endif
 
     return r;
 }
@@ -584,22 +668,33 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
         return r;
     }
 
+#ifdef LAB2B_PART3
+    lc->acquire(parent);
+#endif
+
     std::string buf;
+    ext4_dir_entry newDirOriginInfo;
+    std::string newBuf;
+    std::string linkBuf;
     if (ec->get(parent, buf) != extent_protocol::OK)
     {
         printf("error get, return not OK\n");
         r = IOERR;
-        return r;
+        goto final;
     }
 
     if (ec->create(extent_protocol::T_SYMLINK, ino_out) != extent_protocol::OK)
     {
         printf("error create, return not OK\n");
         r = IOERR;
-        return r;
+        goto final;
     }
 
-#ifdef LAB2_PART1
+#ifdef LAB2B_PART3
+    lc->acquire(ino_out);
+#endif
+
+#ifndef LAB2A_PART2
     size_t bytes_written, linkSize = strlen(link);
     if (write(ino_out, linkSize, 0, link, bytes_written) != OK || bytes_written != linkSize)
     {
@@ -609,16 +704,15 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
     }
 #endif
 
-#ifdef LAB2_PART2
-    std::string linkBuf(link);
+#ifdef LAB2A_PART2
+    linkBuf = std::string(link);
     if (ec->put(ino_out, linkBuf) != extent_protocol::OK)
     {
         r = IOERR;
-        return r;
+        goto final;
     }
 #endif
 
-    ext4_dir_entry newDirOriginInfo;
     newDirOriginInfo.inode_number = ino_out;
     newDirOriginInfo.dir_entry_length = EXT4_PREFIX_SIZE + strlen(name);
     newDirOriginInfo.file_name_length = strlen(name);
@@ -626,10 +720,10 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
     memcpy(newDirOriginInfo.name, name, newDirOriginInfo.file_name_length);
     newDirOriginInfo.name[newDirOriginInfo.file_name_length] = 0;
 
-    std::string newBuf((char *)&newDirOriginInfo, newDirOriginInfo.dir_entry_length);
+    newBuf = std::string((char *)&newDirOriginInfo, newDirOriginInfo.dir_entry_length);
     newBuf = buf + newBuf;
 
-#ifdef LAB2_PART2
+#ifdef LAB2A_PART2
     // log
     txid++;
     ec->beginLog(txid);
@@ -643,8 +737,15 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
     {
         printf("error put, return not OK\n");
         r = IOERR;
-        return r;
+        goto final;
     }
+
+final:
+
+#ifdef LAB2B_PART3
+    lc->release(parent);
+    lc->release(ino_out);
+#endif
 
     return r;
 }
@@ -652,21 +753,32 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
 int chfs_client::readlink(inum ino, std::string &link)
 {
     int r = OK;
+
+#ifdef LAB2B_PART3
+    lc->acquire(ino);
+#endif
+
     extent_protocol::attr a;
+    std::string buf;
     if (ec->getattr(ino, a) != extent_protocol::OK)
     {
         r = IOERR;
-        return r;
+        goto final;
     }
 
-    std::string buf;
     if (ec->get(ino, buf) != extent_protocol::OK)
     {
         r = IOERR;
-        return r;
+        goto final;
     }
 
     link = buf;
+
+final:
+
+#ifdef LAB2B_PART3
+    lc->release(ino);
+#endif
 
     return r;
 }

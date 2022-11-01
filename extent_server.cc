@@ -12,7 +12,7 @@
 #include "extent_server.h"
 #include "persister.h"
 
-// #define LAB2_PART1
+// #define LAB2A_PART1
 
 extent_server::extent_server()
 {
@@ -64,7 +64,7 @@ int extent_server::create(uint32_t type, extent_protocol::extentid_t &id)
   printf("extent_server: create inode\n");
   id = im->alloc_inode(type);
 
-#ifdef LAB2_PART1
+#ifdef LAB2A_PART1
   // log
   if (!isRecovering)
   {
@@ -84,7 +84,7 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
   int size = buf.size();
   im->write_file(id, cbuf, size);
 
-#ifdef LAB2_PART1
+#ifdef LAB2A_PART1
   // log
   if (!isRecovering)
   {
@@ -114,7 +114,7 @@ int extent_server::get(extent_protocol::extentid_t id, std::string &buf)
     free(cbuf);
   }
 
-#ifdef LAB2_PART1
+#ifdef LAB2A_PART1
   // log
   if (!isRecovering)
   {
@@ -137,7 +137,7 @@ int extent_server::getattr(extent_protocol::extentid_t id, extent_protocol::attr
   im->get_attr(id, attr);
   a = attr;
 
-#ifdef LAB2_PART1
+#ifdef LAB2A_PART1
   // log
   if (!isRecovering)
   {
@@ -156,7 +156,7 @@ int extent_server::remove(extent_protocol::extentid_t id, int &)
   id &= 0x7fffffff;
   im->remove_file(id);
 
-#ifdef LAB2_PART1
+#ifdef LAB2A_PART1
   // log
   if (!isRecovering)
   {
@@ -168,32 +168,37 @@ int extent_server::remove(extent_protocol::extentid_t id, int &)
   return extent_protocol::OK;
 }
 
-void extent_server::createLog(uint32_t txid, uint32_t type, extent_protocol::extentid_t &id)
+int extent_server::createLog(uint32_t txid, uint32_t type, extent_protocol::extentid_t &id)
 {
   chfs_command log(chfs_command::CMD_CREATE, txid, std::string((char *)&type, sizeof(type)));
   _persister->append_log(log);
+  return extent_protocol::OK;
 }
 
-void extent_server::putLog(uint32_t txid, extent_protocol::extentid_t id, std::string buf, int &)
+int extent_server::putLog(uint32_t txid, extent_protocol::extentid_t id, std::string buf, int &)
 {
   chfs_command log(chfs_command::CMD_PUT, txid, std::string((char *)&id, sizeof(id)) + buf);
   _persister->append_log(log);
+  return extent_protocol::OK;
 }
 
-void extent_server::removeLog(uint32_t txid, extent_protocol::extentid_t id, int &)
+int extent_server::removeLog(uint32_t txid, extent_protocol::extentid_t id, int &)
 {
   chfs_command log(chfs_command::CMD_REMOVE, txid, std::string((char *)&id, sizeof(id)));
   _persister->append_log(log);
+  return extent_protocol::OK;
 }
 
-void extent_server::beginLog(uint32_t txid)
+int extent_server::beginLog(uint32_t txid, int &)
 {
   chfs_command log(chfs_command::CMD_BEGIN, txid, std::string(""));
   _persister->append_log(log);
+  return extent_protocol::OK;
 }
 
-void extent_server::commitLog(uint32_t txid)
+int extent_server::commitLog(uint32_t txid, int &)
 {
   chfs_command log(chfs_command::CMD_COMMIT, txid, std::string(""));
   _persister->append_log(log);
+  return extent_protocol::OK;
 }

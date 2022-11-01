@@ -22,11 +22,11 @@ class extent_client {
   extent_protocol::status put(extent_protocol::extentid_t eid, std::string buf);
   extent_protocol::status remove(extent_protocol::extentid_t eid);
 
-  void createLog(uint32_t txid, uint32_t type, extent_protocol::extentid_t &eid);
-  void putLog(uint32_t txid, extent_protocol::extentid_t eid, std::string buf);
-  void removeLog(uint32_t txid, extent_protocol::extentid_t eid);
-  void beginLog(uint32_t txid);
-  void commitLog(uint32_t txid);
+  extent_protocol::status createLog(uint32_t txid, uint32_t type, extent_protocol::extentid_t &eid);
+  extent_protocol::status putLog(uint32_t txid, extent_protocol::extentid_t eid, std::string buf);
+  extent_protocol::status removeLog(uint32_t txid, extent_protocol::extentid_t eid);
+  extent_protocol::status beginLog(uint32_t txid);
+  extent_protocol::status commitLog(uint32_t txid);
 };
 
 #endif

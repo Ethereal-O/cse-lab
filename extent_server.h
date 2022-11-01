@@ -34,11 +34,11 @@ public:
 
   // Your code here for lab2A: add logging APIs
   bool isRecovering = false;
-  void createLog(uint32_t txid, uint32_t type, extent_protocol::extentid_t &id);
-  void putLog(uint32_t txid, extent_protocol::extentid_t id, std::string, int &);
-  void removeLog(uint32_t txid, extent_protocol::extentid_t id, int &);
-  void beginLog(uint32_t txid);
-  void commitLog(uint32_t txid);
+  int createLog(uint32_t txid, uint32_t type, extent_protocol::extentid_t &id);
+  int putLog(uint32_t txid, extent_protocol::extentid_t id, std::string, int &);
+  int removeLog(uint32_t txid, extent_protocol::extentid_t id, int &);
+  int beginLog(uint32_t txid, int &);
+  int commitLog(uint32_t txid, int &);
 };
 
 #endif
