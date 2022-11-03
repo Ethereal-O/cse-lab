@@ -76,7 +76,7 @@ extent_protocol::status extent_client::createLog(uint32_t txid, uint32_t type, e
 extent_protocol::status extent_client::putLog(uint32_t txid, extent_protocol::extentid_t eid, std::string buf)
 {
   extent_protocol::status ret = extent_protocol::OK;
-  int r;
+  // int r;
   // ret = cl->call(extent_protocol::putLog, txid, eid, buf, r);
   return ret;
 }
@@ -84,7 +84,7 @@ extent_protocol::status extent_client::putLog(uint32_t txid, extent_protocol::ex
 extent_protocol::status extent_client::removeLog(uint32_t txid, extent_protocol::extentid_t eid)
 {
   extent_protocol::status ret = extent_protocol::OK;
-  int r;
+  // int r;
   // ret = cl->call(extent_protocol::removeLog, txid, eid, r);
   return ret;
 }
@@ -92,7 +92,7 @@ extent_protocol::status extent_client::removeLog(uint32_t txid, extent_protocol:
 extent_protocol::status extent_client::beginLog(uint32_t txid)
 {
   extent_protocol::status ret = extent_protocol::OK;
-  int r;
+  // int r;
   // ret = cl->call(extent_protocol::beginLog, txid, r);
   return ret;
 }
@@ -100,7 +100,7 @@ extent_protocol::status extent_client::beginLog(uint32_t txid)
 extent_protocol::status extent_client::commitLog(uint32_t txid)
 {
   extent_protocol::status ret = extent_protocol::OK;
-  int r;
+  // int r;
   // ret = cl->call(extent_protocol::commitLog, txid, r);
   return ret;
 }

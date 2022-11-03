@@ -380,7 +380,6 @@ release_parent:
     lc->release(parent);
 #endif
 
-    std::cout << "mkdir reach release and return, filename " << name<<" and filenum"<<ino_out;
     return r;
 }
 

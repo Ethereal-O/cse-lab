@@ -433,8 +433,7 @@ void fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
     chfs_client::status ret;
     if ((ret = fuseserver_createhelper(nullptr, parent, name, mode, &e, extent_protocol::T_DIR)) == chfs_client::OK)
     {
-        int a=fuse_reply_entry(req, &e);
-        std::cout<<"fuse reply return "<<a<<std::endl;
+        fuse_reply_entry(req, &e);
         printf("OK: mkdir returns.\n");
     }
     else
