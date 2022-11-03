@@ -11,7 +11,7 @@
 #include "extent_client.h"
 
 #define LAB2A_PART2
-// #define LAB2B_PART3
+#define LAB2B_PART3
 
 /*
  * Your code here for Lab2A:
@@ -172,13 +172,13 @@ int chfs_client::setattr(inum ino, size_t size)
     if (ec->getattr(ino, a) != extent_protocol::OK)
     {
         r = IOERR;
-        goto final;
+        goto release;
     }
 
     if (ec->get(ino, buf) != extent_protocol::OK)
     {
         r = IOERR;
-        goto final;
+        goto release;
     }
 
     if (a.size < size)
@@ -195,10 +195,10 @@ int chfs_client::setattr(inum ino, size_t size)
     if (ec->put(ino, buf.substr(0, size)) != extent_protocol::OK)
     {
         r = IOERR;
-        goto final;
+        goto release;
     }
 
-final:
+release:
 
 #ifdef LAB2B_PART3
     lc->release(ino);
@@ -219,34 +219,35 @@ int chfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_ou
      */
 
     bool found;
-    if ((r = lookup(parent, name, found, ino_out)) != extent_protocol::OK)
-        return r;
-
-    if (found)
-    {
-        r = EXIST;
-        return r;
-    }
+    std::string buf;
+    ext4_dir_entry newDirOriginInfo;
+    std::string newBuf;
 
 #ifdef LAB2B_PART3
     lc->acquire(parent);
 #endif
 
-    std::string buf;
-    ext4_dir_entry newDirOriginInfo;
-    std::string newBuf;
+    if ((r = lookup(parent, name, found, ino_out)) != extent_protocol::OK)
+        goto release_parent;
+
+    if (found)
+    {
+        r = EXIST;
+        goto release_parent;
+    }
+
     if (ec->get(parent, buf) != extent_protocol::OK)
     {
         printf("error get, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release_parent;
     }
 
     if (ec->create(extent_protocol::T_FILE, ino_out) != extent_protocol::OK)
     {
         printf("error create, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release_parent;
     }
 
 #ifdef LAB2B_PART3
@@ -276,14 +277,19 @@ int chfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_ou
     {
         printf("error put, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release;
     }
 
-final:
+release:
+
+#ifdef LAB2B_PART3
+    lc->release(ino_out);
+#endif
+
+release_parent:
 
 #ifdef LAB2B_PART3
     lc->release(parent);
-    lc->release(ino_out);
 #endif
 
     return r;
@@ -301,34 +307,35 @@ int chfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out
      */
 
     bool found;
-    if ((r = lookup(parent, name, found, ino_out)) != extent_protocol::OK)
-        return r;
-
-    if (found)
-    {
-        r = EXIST;
-        return r;
-    }
+    std::string buf;
+    ext4_dir_entry newDirOriginInfo;
+    std::string newBuf;
 
 #ifdef LAB2B_PART3
     lc->acquire(parent);
 #endif
 
-    std::string buf;
-    ext4_dir_entry newDirOriginInfo;
-    std::string newBuf;
+    if ((r = lookup(parent, name, found, ino_out)) != extent_protocol::OK)
+        goto release_parent;
+
+    if (found)
+    {
+        r = EXIST;
+        goto release_parent;
+    }
+
     if (ec->get(parent, buf) != extent_protocol::OK)
     {
         printf("error get, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release_parent;
     }
 
     if (ec->create(extent_protocol::T_DIR, ino_out) != extent_protocol::OK)
     {
         printf("error create, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release_parent;
     }
 
 #ifdef LAB2B_PART3
@@ -358,16 +365,22 @@ int chfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out
     {
         printf("error put, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release;
     }
 
-final:
+release:
 
 #ifdef LAB2B_PART3
-    lc->release(parent);
     lc->release(ino_out);
 #endif
 
+release_parent:
+
+#ifdef LAB2B_PART3
+    lc->release(parent);
+#endif
+
+    std::cout << "mkdir reach release and return, filename " << name<<" and filenum"<<ino_out;
     return r;
 }
 
@@ -391,13 +404,13 @@ int chfs_client::lookup(inum parent, const char *name, bool &found, inum &ino_ou
         {
             found = true;
             ino_out = (*iter).inum;
-            goto final;
+            goto release;
         }
     }
 
     found = false;
 
-final:
+release:
 
     return r;
 }
@@ -412,10 +425,6 @@ int chfs_client::readdir(inum dir, std::list<dirent> &list)
      * and push the dirents to the list.
      */
 
-#ifdef LAB2B_PART3
-    lc->acquire(dir);
-#endif
-
     extent_protocol::attr a;
     std::string buf;
     std::size_t begin = 0;
@@ -423,21 +432,21 @@ int chfs_client::readdir(inum dir, std::list<dirent> &list)
     {
         printf("error getting attr, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release;
     }
 
     if (a.type != extent_protocol::T_DIR)
     {
         printf("error, not a dir\n");
         r = IOERR;
-        goto final;
+        goto release;
     }
 
     if (ec->get(dir, buf) != extent_protocol::OK)
     {
         printf("error get, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release;
     }
 
     while (begin < buf.size())
@@ -450,11 +459,7 @@ int chfs_client::readdir(inum dir, std::list<dirent> &list)
         begin += dirOriginInfo.dir_entry_length;
     }
 
-final:
-
-#ifdef LAB2B_PART3
-    lc->release(dir);
-#endif
+release:
 
     return r;
 }
@@ -474,20 +479,20 @@ int chfs_client::read(inum ino, size_t size, off_t off, std::string &data)
     if (ec->getattr(ino, a) != extent_protocol::OK)
     {
         r = IOERR;
-        goto final;
+        goto release;
     }
 
     if (ec->get(ino, buf) != extent_protocol::OK)
     {
         r = IOERR;
-        goto final;
+        goto release;
     }
 
     maxSize = (a.size - off) > 0 ? (a.size - off - size > 0 ? size : (a.size - off)) : 0;
 
     data = maxSize > 0 ? std::string(buf.substr(off, maxSize)) : nullptr;
 
-final:
+release:
 
     return r;
 }
@@ -514,13 +519,13 @@ int chfs_client::write(inum ino, size_t size, off_t off, const char *data,
     if (ec->getattr(ino, a) != extent_protocol::OK)
     {
         r = IOERR;
-        goto final;
+        goto release;
     }
 
     if (ec->get(ino, buf) != extent_protocol::OK)
     {
         r = IOERR;
-        goto final;
+        goto release;
     }
 
     dataStr = std::string(data, size);
@@ -549,10 +554,10 @@ int chfs_client::write(inum ino, size_t size, off_t off, const char *data,
     if (ec->put(ino, buf) != extent_protocol::OK)
     {
         r = IOERR;
-        goto final;
+        goto release;
     }
 
-final:
+release:
 
 #ifdef LAB2B_PART3
     lc->release(ino);
@@ -584,7 +589,7 @@ int chfs_client::unlink(inum parent, const char *name)
     {
         printf("error get, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release_parent;
     }
 
     while (begin < buf.size())
@@ -599,7 +604,7 @@ int chfs_client::unlink(inum parent, const char *name)
             {
                 printf("error remove, it's a dir\n");
                 r = IOERR;
-                return r;
+                goto release_parent;
             }
             fileIno = dirOriginInfo.inode_number;
             found = true;
@@ -614,7 +619,7 @@ int chfs_client::unlink(inum parent, const char *name)
     if (!found)
     {
         r = NOENT;
-        goto final;
+        goto release_parent;
     }
 
 #ifdef LAB2A_PART2
@@ -634,21 +639,26 @@ int chfs_client::unlink(inum parent, const char *name)
     {
         printf("error remove, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release;
     }
 
     if (ec->put(parent, newBuf) != extent_protocol::OK)
     {
         printf("error put, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release;
     }
 
-final:
+release:
+
+#ifdef LAB2B_PART3
+    lc->release(fileIno);
+#endif
+
+release_parent:
 
 #ifdef LAB2B_PART3
     lc->release(parent);
-    lc->release(fileIno);
 #endif
 
     return r;
@@ -659,35 +669,36 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
     int r = OK;
 
     bool found;
-    if ((r = lookup(parent, name, found, ino_out)) != extent_protocol::OK)
-        return r;
-
-    if (found)
-    {
-        r = EXIST;
-        return r;
-    }
+    std::string buf;
+    ext4_dir_entry newDirOriginInfo;
+    std::string newBuf;
+    std::string linkBuf;
 
 #ifdef LAB2B_PART3
     lc->acquire(parent);
 #endif
 
-    std::string buf;
-    ext4_dir_entry newDirOriginInfo;
-    std::string newBuf;
-    std::string linkBuf;
+    if ((r = lookup(parent, name, found, ino_out)) != extent_protocol::OK)
+        goto release_parent;
+
+    if (found)
+    {
+        r = EXIST;
+        goto release_parent;
+    }
+
     if (ec->get(parent, buf) != extent_protocol::OK)
     {
         printf("error get, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release_parent;
     }
 
     if (ec->create(extent_protocol::T_SYMLINK, ino_out) != extent_protocol::OK)
     {
         printf("error create, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release_parent;
     }
 
 #ifdef LAB2B_PART3
@@ -709,7 +720,7 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
     if (ec->put(ino_out, linkBuf) != extent_protocol::OK)
     {
         r = IOERR;
-        goto final;
+        goto release;
     }
 #endif
 
@@ -737,14 +748,19 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
     {
         printf("error put, return not OK\n");
         r = IOERR;
-        goto final;
+        goto release;
     }
 
-final:
+release:
+
+#ifdef LAB2B_PART3
+    lc->release(ino_out);
+#endif
+
+release_parent:
 
 #ifdef LAB2B_PART3
     lc->release(parent);
-    lc->release(ino_out);
 #endif
 
     return r;
@@ -754,31 +770,23 @@ int chfs_client::readlink(inum ino, std::string &link)
 {
     int r = OK;
 
-#ifdef LAB2B_PART3
-    lc->acquire(ino);
-#endif
-
     extent_protocol::attr a;
     std::string buf;
     if (ec->getattr(ino, a) != extent_protocol::OK)
     {
         r = IOERR;
-        goto final;
+        goto release;
     }
 
     if (ec->get(ino, buf) != extent_protocol::OK)
     {
         r = IOERR;
-        goto final;
+        goto release;
     }
 
     link = buf;
 
-final:
-
-#ifdef LAB2B_PART3
-    lc->release(ino);
-#endif
+release:
 
     return r;
 }
