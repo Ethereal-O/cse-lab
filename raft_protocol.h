@@ -113,6 +113,13 @@ class install_snapshot_args
 {
 public:
     // Lab3: Your code here
+    int term;
+    int leader_id;
+    int last_included_index;
+    int last_included_term;
+    int offset;
+    std::string data;
+    bool done;
 };
 
 marshall &operator<<(marshall &m, const install_snapshot_args &args);
@@ -122,6 +129,7 @@ class install_snapshot_reply
 {
 public:
     // Lab3: Your code here
+    int term;
 };
 
 marshall &operator<<(marshall &m, const install_snapshot_reply &reply);

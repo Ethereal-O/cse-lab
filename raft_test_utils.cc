@@ -150,7 +150,7 @@ void list_state_machine::apply_snapshot(const std::vector<char> &snapshot) {
     ss >> temp;
     store.push_back(temp);
   }
-}
+} 
 
 std::vector<char> list_state_machine::snapshot() {
   std::unique_lock<std::mutex> lock(mtx);

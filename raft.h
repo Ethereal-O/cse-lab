@@ -18,6 +18,8 @@
 
 // #define DEBUG_PART1
 // #define DEBUG_PART2
+// #define DEBUG_PART3
+// #define DEBUG_PART4
 // #define DEBUG_PART5
 
 template <typename state_machine, typename command>
@@ -28,10 +30,12 @@ class raft
 
     friend class thread_pool;
 
-    // #define RAFT_LOG(fmt, args...) \
-//     do                         \
-//     {                          \
-//     } while (0);
+    /*
+    #define RAFT_LOG(fmt, args...) \
+        do                         \
+        {                          \
+        } while (0);
+    */
 
 #define RAFT_LOG(fmt, args...)                                                                                   \
     do                                                                                                           \
@@ -157,21 +161,24 @@ private:
     bool judge_match(int prev_log_index, int prev_log_term);
     bool can_vote(request_vote_args args);
     int get_commit_index();
+    std::string convert_snapshot(std::vector<char> snapshot);
+    std::vector<char> convert_snapshot(std::string snapshot);
 };
 
 template <typename state_machine, typename command>
-raft<state_machine, command>::raft(rpcs *server, std::vector<rpcc *> clients, int idx, raft_storage<command> *storage, state_machine *state) : stopped(false),
+raft<state_machine, command>::raft(rpcs *server, std::vector<rpcc *> clients, int idx, raft_storage<command> *storage, state_machine *state) : storage(storage),
+                                                                                                                                               state(state),
                                                                                                                                                rpc_server(server),
                                                                                                                                                rpc_clients(clients),
                                                                                                                                                my_id(idx),
-                                                                                                                                               storage(storage),
-                                                                                                                                               state(state),
+                                                                                                                                               stopped(false),
+                                                                                                                                               role(follower),
                                                                                                                                                background_election(nullptr),
                                                                                                                                                background_ping(nullptr),
                                                                                                                                                background_commit(nullptr),
                                                                                                                                                background_apply(nullptr),
-                                                                                                                                               current_term(0),
-                                                                                                                                               role(follower)
+                                                                                                                                               current_term(0)
+
 {
     thread_pool = new ThrPool(32);
 
@@ -184,8 +191,20 @@ raft<state_machine, command>::raft(rpcs *server, std::vector<rpcc *> clients, in
     // Do the initialization
     current_term = storage->current_term;
     vote_for = storage->vote_for;
-    commit_index = 0;
-    last_applied = 0;
+    if (storage->snp_index > 0)
+    {
+        state->apply_snapshot(storage->snapshot);
+        commit_index = storage->snp_index;
+        last_applied = storage->snp_index;
+#ifdef DEBUG_PART4
+        RAFT_LOG("Node %d: load snapshot from index %d, term %d", my_id, storage->snp_index, storage->snp_term);
+#endif
+    }
+    else
+    {
+        commit_index = 0;
+        last_applied = 0;
+    }
     last_heartbeat_time = clock();
 }
 
@@ -287,6 +306,14 @@ template <typename state_machine, typename command>
 bool raft<state_machine, command>::save_snapshot()
 {
     // Lab3: Your code here
+    mtx.lock();
+#ifdef DEBUG_PART4
+    RAFT_LOG("%d save_snapshot", my_id);
+#endif
+    int last_log_index = last_applied;
+    int last_log_term = get_log_term(last_log_index);
+    storage->save_snapshot(last_log_index, last_log_term, state->snapshot());
+    mtx.unlock();
     return true;
 }
 
@@ -348,7 +375,7 @@ void raft<state_machine, command>::handle_request_vote_reply(int target, const r
     if (reply.vote_granted)
     {
         followers.insert(target);
-        if (followers.size() > num_nodes() / 2)
+        if ((int)followers.size() > num_nodes() / 2)
         {
             next_index = std::vector<int>(num_nodes(), storage->logs.size() + 1);
             match_index = std::vector<int>(num_nodes(), 0);
@@ -405,7 +432,7 @@ int raft<state_machine, command>::append_entries(append_entries_args<command> ar
         last_heartbeat_time = clock();
         if (role == candidate)
             become_follower();
-        if (judge_match(arg.prev_log_index, arg.prev_log_term) && arg.prev_log_index == storage->logs.size())
+        if (judge_match(arg.prev_log_index, arg.prev_log_term) && arg.prev_log_index == (int)storage->logs.size())
             if (arg.leader_commit > commit_index)
                 commit_index = std::min(arg.leader_commit, (int)storage->logs.size());
     }
@@ -452,6 +479,28 @@ template <typename state_machine, typename command>
 int raft<state_machine, command>::install_snapshot(install_snapshot_args args, install_snapshot_reply &reply)
 {
     // Lab3: Your code here
+    mtx.lock();
+#ifdef DEBUG_PART4
+    RAFT_LOG("%d install_snapshot %d %d,now %d", my_id, args.last_included_index, args.term, storage->logs.size());
+#endif
+
+    // if (args.term < current_term)
+    //     goto release;
+
+    {
+        log_entry<command> nop = {args.term, command()};
+        while ((int)storage->logs.size() < args.last_included_index)
+            storage->logs.push_back(nop);
+        state->apply_snapshot(convert_snapshot(args.data));
+
+        current_term = args.term;
+        storage->current_term = args.term;
+        commit_index = last_applied = args.last_included_index;
+    }
+
+    // release:
+    reply.term = current_term;
+    mtx.unlock();
     return 0;
 }
 
@@ -459,6 +508,23 @@ template <typename state_machine, typename command>
 void raft<state_machine, command>::handle_install_snapshot_reply(int node, const install_snapshot_args &arg, const install_snapshot_reply &reply)
 {
     // Lab3: Your code here
+    mtx.lock();
+#ifdef DEBUG_PART4
+    RAFT_LOG("%d handle_install_snapshot_reply", my_id);
+#endif
+    if (reply.term > current_term)
+    {
+        begin_new_term(reply.term);
+        goto release;
+    }
+
+    if (role != leader)
+        goto release;
+
+    next_index[node] = arg.last_included_index + 1;
+
+release:
+    mtx.unlock();
     return;
 }
 
@@ -577,8 +643,24 @@ void raft<state_machine, command>::run_background_commit()
             {
                 if (i == my_id)
                     continue;
-                if (next_index[i] > storage->logs.size())
+                if (next_index[i] > (int)storage->logs.size())
                     continue;
+
+                if (next_index[i] <= storage->snp_index)
+                {
+                    // #ifdef DEBUG_PART4
+                    //                     RAFT_LOG("%d send snapshot to %d, term %d,when next_index[%d] is %d,snapshot index = %d,log_size=%d", my_id, i, current_term, i, next_index[i], storage->snp_index, storage->logs.size());
+                    // #endif
+                    install_snapshot_args args;
+                    args.term = current_term;
+                    args.leader_id = my_id;
+                    args.last_included_index = storage->snp_index;
+                    args.last_included_term = storage->snp_term;
+                    args.data = convert_snapshot(storage->snapshot);
+
+                    thread_pool->addObjJob(this, &raft::send_install_snapshot, i, args);
+                    continue;
+                }
 
                 append_entries_args<command> args;
                 args.term = current_term;
@@ -614,11 +696,10 @@ void raft<state_machine, command>::run_background_apply()
             return;
         // Lab3: Your code here:
         mtx.lock();
-        // if (role==leader)
-        //     RAFT_LOG("%d %d %d", my_id, commit_index, last_applied);
         while (last_applied < commit_index)
         {
-            state->apply_log(storage->logs[last_applied].cmd);
+            command cmd = storage->logs[last_applied].cmd;
+            state->apply_log(cmd);
             last_applied++;
         }
         mtx.unlock();
@@ -688,17 +769,17 @@ int raft<state_machine, command>::get_log_term(int index)
 {
     if (index == -1 || index == 0)
         return index;
-    if (index > storage->logs.size())
+    if (index > (int)storage->logs.size())
         return -1;
     return storage->logs[index - 1].term;
 }
 
 /**
  * @brief begin_new_term
- * 
- * @tparam state_machine 
- * @tparam command 
- * @param term 
+ *
+ * @tparam state_machine
+ * @tparam command
+ * @param term
  */
 template <typename state_machine, typename command>
 void raft<state_machine, command>::begin_new_term(int term)
@@ -715,9 +796,9 @@ void raft<state_machine, command>::begin_new_term(int term)
 
 /**
  * @brief become_follower
- * 
- * @tparam state_machine 
- * @tparam command 
+ *
+ * @tparam state_machine
+ * @tparam command
  */
 template <typename state_machine, typename command>
 void raft<state_machine, command>::become_follower()
@@ -728,11 +809,16 @@ void raft<state_machine, command>::become_follower()
 #ifdef DEBUG_PART2
     RAFT_LOG("%d becoming follower", my_id);
 #endif
+#ifdef DEBUG_PART3
+    RAFT_LOG("%d becoming follower", my_id);
+#endif
 #ifdef DEBUG_PART5
     RAFT_LOG("%d becoming follower", my_id);
 #endif
-#define follower_timeout_max 600
-#define follower_timeout_min 500
+    // #define follower_timeout_max 1200
+    // #define follower_timeout_min 1000
+#define follower_timeout_max 800
+#define follower_timeout_min 600
     election_timeout = rand() % (follower_timeout_max - follower_timeout_min) + follower_timeout_min;
     followers.clear();
     role = follower;
@@ -740,9 +826,9 @@ void raft<state_machine, command>::become_follower()
 
 /**
  * @brief become_candidate
- * 
- * @tparam state_machine 
- * @tparam command 
+ *
+ * @tparam state_machine
+ * @tparam command
  */
 template <typename state_machine, typename command>
 void raft<state_machine, command>::become_candidate()
@@ -753,11 +839,16 @@ void raft<state_machine, command>::become_candidate()
 #ifdef DEBUG_PART2
     RAFT_LOG("%d becoming candidate", my_id);
 #endif
+#ifdef DEBUG_PART3
+    RAFT_LOG("%d becoming candidate", my_id);
+#endif
 #ifdef DEBUG_PART5
     RAFT_LOG("%d becoming candidate", my_id);
 #endif
+    // #define candidate_timeout_max 2000
+    // #define candidate_timeout_min 1500
 #define candidate_timeout_max 2000
-#define candidate_timeout_min 800
+#define candidate_timeout_min 1000
     election_timeout = rand() % (candidate_timeout_max - candidate_timeout_min) + candidate_timeout_min;
     followers.clear();
     followers.insert(my_id);
@@ -768,9 +859,9 @@ void raft<state_machine, command>::become_candidate()
 
 /**
  * @brief become_leader
- * 
- * @tparam state_machine 
- * @tparam command 
+ *
+ * @tparam state_machine
+ * @tparam command
  */
 template <typename state_machine, typename command>
 void raft<state_machine, command>::become_leader()
@@ -779,6 +870,9 @@ void raft<state_machine, command>::become_leader()
     RAFT_LOG("%d becoming leader", my_id);
 #endif
 #ifdef DEBUG_PART2
+    RAFT_LOG("%d becoming leader", my_id);
+#endif
+#ifdef DEBUG_PART3
     RAFT_LOG("%d becoming leader", my_id);
 #endif
 #ifdef DEBUG_PART5
@@ -792,30 +886,30 @@ void raft<state_machine, command>::become_leader()
 
 /**
  * @brief judge_match
- * 
- * @tparam state_machine 
- * @tparam command 
- * @param prev_log_index 
- * @param prev_log_term 
- * @return true 
- * @return false 
+ *
+ * @tparam state_machine
+ * @tparam command
+ * @param prev_log_index
+ * @param prev_log_term
+ * @return true
+ * @return false
  */
 template <typename state_machine, typename command>
 bool raft<state_machine, command>::judge_match(int prev_log_index, int prev_log_term)
 {
-    if (storage->logs.size() < prev_log_index)
+    if ((int)storage->logs.size() < prev_log_index)
         return false;
     return get_log_term(prev_log_index) == prev_log_term;
 }
 
 /**
  * @brief can_vote
- * 
- * @tparam state_machine 
- * @tparam command 
- * @param args 
- * @return true 
- * @return false 
+ *
+ * @tparam state_machine
+ * @tparam command
+ * @param args
+ * @return true
+ * @return false
  */
 template <typename state_machine, typename command>
 bool raft<state_machine, command>::can_vote(request_vote_args args)
@@ -823,15 +917,15 @@ bool raft<state_machine, command>::can_vote(request_vote_args args)
     if (vote_for != -1 && vote_for != args.candidate_id)
         return false;
 
-    return get_log_term(storage->logs.size()) < args.last_log_term || (get_log_term(storage->logs.size()) == args.last_log_term && storage->logs.size() <= args.last_log_index);
+    return get_log_term(storage->logs.size()) < args.last_log_term || (get_log_term(storage->logs.size()) == args.last_log_term && (int)storage->logs.size() <= args.last_log_index);
 }
 
 /**
  * @brief get_commit_index
- * 
- * @tparam state_machine 
- * @tparam command 
- * @return int 
+ *
+ * @tparam state_machine
+ * @tparam command
+ * @return int
  */
 template <typename state_machine, typename command>
 int raft<state_machine, command>::get_commit_index()
@@ -841,4 +935,36 @@ int raft<state_machine, command>::get_commit_index()
     return copy[copy.size() / 2];
 }
 
+/**
+ * @brief convert_snapshot
+ *
+ * @tparam state_machine
+ * @tparam command
+ * @param snapshot
+ * @return std::string
+ */
+template <typename state_machine, typename command>
+std::string raft<state_machine, command>::convert_snapshot(std::vector<char> snapshot)
+{
+    std::string str;
+    str.assign(snapshot.begin(), snapshot.end());
+    std::stringstream ss(str);
+    return str;
+}
+
+/**
+ * @brief convert_snapshot
+ *
+ * @tparam state_machine
+ * @tparam command
+ * @param snapshot
+ * @return std::vector<char>
+ */
+template <typename state_machine, typename command>
+std::vector<char> raft<state_machine, command>::convert_snapshot(std::string snapshot)
+{
+    std::vector<char> vec;
+    vec.assign(snapshot.begin(), snapshot.end());
+    return vec;
+}
 #endif // raft_h
