@@ -50,7 +50,7 @@ public:
     unsigned long atime;
     unsigned long mtime;
     unsigned long ctime;
-  }
+  };
   struct ext4_dir_entry
   {
     uint32_t inode_number;

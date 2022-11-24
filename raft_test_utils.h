@@ -198,7 +198,6 @@ raft_group<state_machine, command>::raft_group(int num,
     // printf("raft_group created-1\n");
     for (int i = 0; i < num; i++)
         nodes[i]->start();
-    // printf("raft_group created\n");
 }
 
 template <typename state_machine, typename command>

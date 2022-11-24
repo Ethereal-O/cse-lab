@@ -539,12 +539,12 @@ int main(int argc, char *argv[])
         exit(1);
     }
 #endif
-    if (argc != 2)
-    {
-        fprintf(stderr, "Usage: chfs_client <mountpoint>\n");
-        exit(1);
-    }
-#endif
+    // if (argc != 2)
+    // {
+    //     fprintf(stderr, "Usage: chfs_client <mountpoint>\n");
+    //     exit(1);
+    // }
+
     mountpoint = argv[1];
 
     srandom(getpid());

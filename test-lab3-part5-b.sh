@@ -15,6 +15,7 @@ if [ ! -d "$LogDIR" ]; then
     mkdir $LogDIR
 fi
 
+echo $BASE_PORT
 ./test-lab3-part5-b $BASE_PORT 
 
 ./stop.sh >/dev/null 2>&1
