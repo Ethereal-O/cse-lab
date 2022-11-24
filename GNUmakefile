@@ -87,7 +87,8 @@ clean:
 
 handin_ignore=$(clean_files) core* *log .git
 handin_file=lab$(LAB).tgz
-labdir=$(shell basename $(PWD))
+#labdir=$(shell basename $(PWD))
+labdir=$(basename $(PWD))
 handin: 
 	@bash -c "cd ../; tar -X <(tr ' ' '\n' < <(echo '$(handin_ignore)')) -czvf $(handin_file) $(labdir); mv $(handin_file) $(labdir); cd $(labdir)"
 	@echo Please modify lab3.tgz to lab3_[your student id].tgz and upload it to Canvas \(https://oc.sjtu.edu.cn/courses/49245\)
