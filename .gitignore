@@ -8,3 +8,5 @@ log/
 raft_temp/
 
 core
+./mytest_lab3.log
+./mytest_lab3_err.log
