@@ -815,10 +815,10 @@ void raft<state_machine, command>::become_follower()
 #ifdef DEBUG_PART5
     RAFT_LOG("%d becoming follower", my_id);
 #endif
-    // #define follower_timeout_max 1200
-    // #define follower_timeout_min 1000
-#define follower_timeout_max 800
-#define follower_timeout_min 600
+#define follower_timeout_max 1200
+#define follower_timeout_min 1000
+    // #define follower_timeout_max 800
+    // #define follower_timeout_min 600
     election_timeout = rand() % (follower_timeout_max - follower_timeout_min) + follower_timeout_min;
     followers.clear();
     role = follower;
@@ -845,10 +845,10 @@ void raft<state_machine, command>::become_candidate()
 #ifdef DEBUG_PART5
     RAFT_LOG("%d becoming candidate", my_id);
 #endif
-    // #define candidate_timeout_max 2000
-    // #define candidate_timeout_min 1500
 #define candidate_timeout_max 2000
-#define candidate_timeout_min 1000
+#define candidate_timeout_min 1500
+    // #define candidate_timeout_max 2000
+    // #define candidate_timeout_min 1000
     election_timeout = rand() % (candidate_timeout_max - candidate_timeout_min) + candidate_timeout_min;
     followers.clear();
     followers.insert(my_id);
