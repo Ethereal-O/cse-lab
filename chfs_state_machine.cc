@@ -109,7 +109,6 @@ void chfs_state_machine::apply_log(raft_command &cmd)
         es.get(chfs_cmd.id, buf);
         chfs_cmd.res->tp = chfs_command_raft::command_type::CMD_GET;
         chfs_cmd.res->buf = buf;
-        printf("change done\n");
         chfs_cmd.res->done = true;
         break;
     }
@@ -136,7 +135,6 @@ void chfs_state_machine::apply_log(raft_command &cmd)
     default:
         break;
     }
-    printf("notify done\n");
     chfs_cmd.res->cv.notify_all();
     mtx.unlock();
     return;

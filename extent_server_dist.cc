@@ -14,7 +14,7 @@ chfs_raft *extent_server_dist::leader() const
     }
 }
 
-#define wait_time 200000
+#define wait_time 11000
 
 int extent_server_dist::create(uint32_t type, extent_protocol::extentid_t &id)
 {
@@ -91,12 +91,9 @@ int extent_server_dist::get(extent_protocol::extentid_t id, std::string &buf)
         cmd.res->start = std::chrono::system_clock::now();
         if (!cmd.res->done)
         {
-            std::cout<<"prepare done at "<<std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())<<std::endl;
             ASSERT(
                 cmd.res->cv.wait_until(lock, cmd.res->start + std::chrono::milliseconds(wait_time)) == std::cv_status::no_timeout,
                 "extent_server_dist::get command timeout");
-                if (cmd.res->done)
-                std::cout<<"wait done at "<<std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())<<std::endl;
         }
         buf = cmd.res->buf;
     }

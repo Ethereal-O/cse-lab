@@ -17,6 +17,11 @@ typedef struct
     string val;
 } KeyVal;
 
+bool isalpha(char c)
+{
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+
 //
 // The map function is called once for each file of input. The first
 // argument is the name of the input file, and the second is the
@@ -29,10 +34,21 @@ vector<KeyVal> Map(const string &filename, const string &content)
     // Your code goes here
     // Hints: split contents into an array of words.
     vector<KeyVal> kv;
-    istringstream iss(content);
-    string str;
-    while (getline(iss, str, ' '))
-        kv.push_back({str, "1"});
+    string originStr = content;
+    int pos = 0;
+    while (pos < (int)content.length())
+    {
+        while (pos < (int)originStr.length() && !isalpha(originStr[pos]))
+            pos++;
+        string str = "";
+        while (pos < (int)content.length() && isalpha(originStr[pos]))
+        {
+            str += originStr[pos];
+            pos++;
+        }
+        if (str.length() > 0)
+            kv.push_back({str, "1"});
+    }
     return kv;
 }
 

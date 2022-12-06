@@ -10,38 +10,63 @@ using namespace std;
 
 #define REDUCER_COUNT 4
 
-enum mr_tasktype {
+enum mr_tasktype
+{
 	NONE = 0, // this flag means no task needs to be performed at this point
 	MAP,
 	REDUCE
 };
 
-class mr_protocol {
+class mr_protocol
+{
 public:
 	typedef int status;
-	enum xxstatus { OK, RPCERR, NOENT, IOERR };
-	enum rpc_numbers {
+	enum xxstatus
+	{
+		OK,
+		RPCERR,
+		NOENT,
+		IOERR
+	};
+	enum rpc_numbers
+	{
 		asktask = 0xa001,
 		submittask,
 	};
 
-	struct AskTaskResponse {
+	struct AskTaskResponse
+	{
+		// Lab4: Your definition here.
+		int taskType;
+		int index;
+		string filename;
+		int tot;
+	};
+
+	struct AskTaskRequest
+	{
 		// Lab4: Your definition here.
 	};
 
-	struct AskTaskRequest {
+	struct SubmitTaskResponse
+	{
 		// Lab4: Your definition here.
 	};
 
-	struct SubmitTaskResponse {
+	struct SubmitTaskRequest
+	{
 		// Lab4: Your definition here.
 	};
 
-	struct SubmitTaskRequest {
-		// Lab4: Your definition here.
-	};
+	friend marshall &operator<<(marshall &m, const AskTaskResponse &res)
+	{
+		return m << res.taskType << res.index << res.filename << res.tot;
+	}
 
+	friend unmarshall &operator>>(unmarshall &u, AskTaskResponse &res)
+	{
+		return u >> res.taskType >> res.index >> res.filename >> res.tot;
+	}
 };
 
 #endif
-
