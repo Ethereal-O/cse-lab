@@ -21,6 +21,7 @@
 // #define DEBUG_PART3
 // #define DEBUG_PART4
 // #define DEBUG_PART5
+#define DEBUG_LAB4
 
 template <typename state_machine, typename command>
 class raft
@@ -698,6 +699,9 @@ void raft<state_machine, command>::run_background_apply()
         mtx.lock();
         while (last_applied < commit_index)
         {
+#ifdef DEBUG_LAB4
+            RAFT_LOG("%d apply log %d", my_id, last_applied + 1);
+#endif
             command cmd = storage->logs[last_applied].cmd;
             state->apply_log(cmd);
             last_applied++;

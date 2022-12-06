@@ -11,11 +11,11 @@
 
 using namespace std;
 
-typedef struct {
+typedef struct
+{
     string key;
     string val;
-}
-KeyVal;
+} KeyVal;
 
 //
 // The map function is called once for each file of input. The first
@@ -28,7 +28,12 @@ vector<KeyVal> Map(const string &filename, const string &content)
 {
     // Your code goes here
     // Hints: split contents into an array of words.
-
+    vector<KeyVal> kv;
+    istringstream iss(content);
+    string str;
+    while (getline(iss, str, ' '))
+        kv.push_back({str, "1"});
+    return kv;
 }
 
 //
@@ -36,22 +41,26 @@ vector<KeyVal> Map(const string &filename, const string &content)
 // map tasks, with a list of all the values created for that key by
 // any map task.
 //
-string Reduce(const string &key, const vector <string> &values)
+string Reduce(const string &key, const vector<string> &values)
 {
     // Your code goes here
     // Hints: return the number of occurrences of the word.
-
+    long tot = 0;
+    for (auto value : values)
+        tot += stol(value);
+    return to_string(tot);
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
-    if (argc < 2) {
+    if (argc < 2)
+    {
         cout << "Usage: mrsequential inputfiles...\n";
         exit(1);
     }
 
-    vector <string> filename;
-    vector <KeyVal> intermediate;
+    vector<string> filename;
+    vector<KeyVal> intermediate;
 
     //
     // read each input file,
@@ -59,7 +68,8 @@ int main(int argc, char ** argv)
     // accumulate the intermediate Map output.
     //
 
-    for (int i = 1; i < argc; ++i) {
+    for (int i = 1; i < argc; ++i)
+    {
 
         string filename = argv[i];
         string content;
@@ -67,10 +77,9 @@ int main(int argc, char ** argv)
         // Read the whole file into the buffer.
         getline(ifstream(filename), content, '\0');
 
-        vector <KeyVal> KVA = Map(filename, content);
+        vector<KeyVal> KVA = Map(filename, content);
 
         intermediate.insert(intermediate.end(), KVA.begin(), KVA.end());
-
     }
 
     //
@@ -80,22 +89,25 @@ int main(int argc, char ** argv)
     //
 
     sort(intermediate.begin(), intermediate.end(),
-    	[](KeyVal const & a, KeyVal const & b) {
-		return a.key < b.key;
-	});
+         [](KeyVal const &a, KeyVal const &b)
+         {
+             return a.key < b.key;
+         });
 
     //
     // call Reduce on each distinct key in intermediate[],
     // and print the result to mr-out-0.
     //
 
-    for (unsigned int i = 0; i < intermediate.size();) {
+    for (unsigned int i = 0; i < intermediate.size();)
+    {
         unsigned int j = i + 1;
         for (; j < intermediate.size() && intermediate[j].key == intermediate[i].key;)
             j++;
 
-        vector < string > values;
-        for (unsigned int k = i; k < j; k++) {
+        vector<string> values;
+        for (unsigned int k = i; k < j; k++)
+        {
             values.push_back(intermediate[k].val);
         }
 
@@ -106,4 +118,3 @@ int main(int argc, char ** argv)
     }
     return 0;
 }
-
