@@ -7,7 +7,8 @@ chfs_command_raft::chfs_command_raft()
     type = 0;
     id = 0;
     buf = "";
-    res = std::make_shared<result>();
+    // res = std::make_shared<result>();
+    res = new result();
 }
 
 chfs_command_raft::chfs_command_raft(const chfs_command_raft &cmd) : cmd_tp(cmd.cmd_tp), type(cmd.type), id(cmd.id), buf(cmd.buf), res(cmd.res)
@@ -62,8 +63,9 @@ void chfs_command_raft::deserialize(const char *buf_in, int size)
 marshall &operator<<(marshall &m, const chfs_command_raft &cmd)
 {
     // Lab3: Your code here
+    unsigned long long ptr = (unsigned long long)cmd.res;
     int command_type = cmd.cmd_tp;
-    m << command_type << cmd.type << cmd.id << cmd.buf;
+    m << command_type << cmd.type << cmd.id << cmd.buf << ptr;
     return m;
 }
 
@@ -71,8 +73,10 @@ unmarshall &operator>>(unmarshall &u, chfs_command_raft &cmd)
 {
     // Lab3: Your code here
     int command_type;
-    u >> command_type >> cmd.type >> cmd.id >> cmd.buf;
+    unsigned long long ptr;
+    u >> command_type >> cmd.type >> cmd.id >> cmd.buf >> ptr;
     cmd.cmd_tp = (chfs_command_raft::command_type)command_type;
+    cmd.res = (chfs_command_raft::result *)ptr;
     return u;
 }
 
@@ -80,8 +84,14 @@ void chfs_state_machine::apply_log(raft_command &cmd)
 {
     chfs_command_raft &chfs_cmd = dynamic_cast<chfs_command_raft &>(cmd);
     // Lab3: Your code here
+
     mtx.lock();
     std::unique_lock<std::mutex> lock(chfs_cmd.res->mtx);
+    if (chfs_cmd.res->done && (chfs_cmd.cmd_tp == chfs_command_raft::command_type::CMD_GET || chfs_cmd.cmd_tp == chfs_command_raft::command_type::CMD_GETA))
+    {
+        mtx.unlock();
+        return;
+    }
     switch (chfs_cmd.cmd_tp)
     {
     case chfs_command_raft::command_type::CMD_CRT:

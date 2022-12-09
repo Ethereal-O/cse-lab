@@ -1,6 +1,8 @@
 #ifndef raft_h
 #define raft_h
 
+#pragma once
+
 #include <atomic>
 #include <mutex>
 #include <chrono>
@@ -22,6 +24,8 @@
 // #define DEBUG_PART4
 // #define DEBUG_PART5
 // #define DEBUG_LAB4
+
+
 
 template <typename state_machine, typename command>
 class raft
@@ -689,7 +693,7 @@ void raft<state_machine, command>::run_background_apply()
 
     // Work for all the nodes.
 
-#define sleep_time 10
+#define sleep_time 30
 
     while (true)
     {
@@ -704,6 +708,8 @@ void raft<state_machine, command>::run_background_apply()
             last_applied++;
         }
         mtx.unlock();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
     }
 
 #undef sleep_time

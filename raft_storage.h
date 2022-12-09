@@ -109,30 +109,30 @@ raft_storage<command>::~raft_storage()
 template <typename command>
 void raft_storage<command>::flush()
 {
-    mtx.lock();
-    std::ofstream out(log_file_path, std::ios::trunc | std::ios::out | std::ios::binary);
-    if (out.is_open())
-    {
-        out.write((char *)&current_term, sizeof(int));
-        out.write((char *)&vote_for, sizeof(int));
-        int log_size = logs.size();
-        out.write((char *)&log_size, sizeof(int));
+    // mtx.lock();
+    // std::ofstream out(log_file_path, std::ios::trunc | std::ios::out | std::ios::binary);
+    // if (out.is_open())
+    // {
+    //     out.write((char *)&current_term, sizeof(int));
+    //     out.write((char *)&vote_for, sizeof(int));
+    //     int log_size = logs.size();
+    //     out.write((char *)&log_size, sizeof(int));
 
-        for (auto log : logs)
-        {
-            int size = log.cmd.size();
-            char *buf = new char[size];
+    //     for (auto log : logs)
+    //     {
+    //         int size = log.cmd.size();
+    //         char *buf = new char[size];
 
-            log.cmd.serialize(buf, size);
+    //         log.cmd.serialize(buf, size);
 
-            out.write((char *)&log.term, sizeof(int));
-            out.write((char *)&size, sizeof(int));
-            out.write(buf, size);
-            delete[] buf;
-        }
-    }
-    out.close();
-    mtx.unlock();
+    //         out.write((char *)&log.term, sizeof(int));
+    //         out.write((char *)&size, sizeof(int));
+    //         out.write(buf, size);
+    //         delete[] buf;
+    //     }
+    // }
+    // out.close();
+    // mtx.unlock();
 }
 
 template <typename command>

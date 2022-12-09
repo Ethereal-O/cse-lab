@@ -2,9 +2,10 @@
 #define chfs_client_h
 
 #include <string>
-//#include "chfs_protocol.h"
+// #include "chfs_protocol.h"
 #include "extent_client.h"
 #include <vector>
+#include <map>
 
 #define EXT4_NAME_LEN 255
 #define EXT4_PREFIX_SIZE (sizeof(uint32_t) + sizeof(uint16_t) + 2 * sizeof(uint8_t))
@@ -44,7 +45,8 @@ public:
     std::string name;
     chfs_client::inum inum;
   };
-  struct syminfo {
+  struct syminfo
+  {
     std::string slink;
     unsigned long long size;
     unsigned long atime;
@@ -75,7 +77,7 @@ private:
   static std::string filename(inum);
   static inum n2i(std::string);
 
- public:
+public:
   chfs_client(std::string);
 
   bool isfile(inum);
@@ -83,7 +85,7 @@ private:
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
-  int getsymlink(inum, syminfo&);
+  int getsymlink(inum, syminfo &);
 
   int setattr(inum, size_t);
   int lookup(inum, const char *, bool &, inum &);
@@ -97,6 +99,10 @@ private:
   /** you may need to add symbolic link related methods here.*/
   int symlink(const char *, inum, const char *, inum &);
   int readlink(inum, std::string &);
+
+private:
+  std::map<inum, extent_protocol::attr> attrCache;
+  std::map<inum, std::string> contentCache;
 };
 
 #endif

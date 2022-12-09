@@ -9,7 +9,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-
 chfs_client::chfs_client(std::string extent_dst)
 {
     ec = new extent_client(extent_dst);
@@ -38,10 +37,18 @@ bool chfs_client::isfile(inum inum)
 {
     extent_protocol::attr a;
 
-    if (ec->getattr(inum, a) != extent_protocol::OK)
+    if (attrCache.find(inum) == attrCache.end())
     {
-        printf("error getting attr\n");
-        return false;
+        if (ec->getattr(inum, a) != extent_protocol::OK)
+        {
+            printf("error getting attr\n");
+            return false;
+        }
+        attrCache.emplace(inum, a);
+    }
+    else
+    {
+        a = attrCache.find(inum)->second;
     }
 
     if (a.type == extent_protocol::T_FILE)
@@ -64,10 +71,18 @@ bool chfs_client::isdir(inum inum)
     // return !isfile(inum);
     extent_protocol::attr a;
 
-    if (ec->getattr(inum, a) != extent_protocol::OK)
+    if (attrCache.find(inum) == attrCache.end())
     {
-        printf("error getting attr\n");
-        return false;
+        if (ec->getattr(inum, a) != extent_protocol::OK)
+        {
+            printf("error getting attr\n");
+            return false;
+        }
+        attrCache.emplace(inum, a);
+    }
+    else
+    {
+        a = attrCache.find(inum)->second;
     }
 
     if (a.type == extent_protocol::T_DIR)
@@ -85,10 +100,18 @@ int chfs_client::getfile(inum inum, fileinfo &fin)
 
     printf("getfile %016llx\n", inum);
     extent_protocol::attr a;
-    if (ec->getattr(inum, a) != extent_protocol::OK)
+    if (attrCache.find(inum) == attrCache.end())
     {
-        r = IOERR;
-        goto release;
+        if (ec->getattr(inum, a) != extent_protocol::OK)
+        {
+            r = IOERR;
+            goto release;
+        }
+        attrCache.emplace(inum, a);
+    }
+    else
+    {
+        a = attrCache.find(inum)->second;
     }
 
     fin.atime = a.atime;
@@ -107,10 +130,18 @@ int chfs_client::getdir(inum inum, dirinfo &din)
 
     printf("getdir %016llx\n", inum);
     extent_protocol::attr a;
-    if (ec->getattr(inum, a) != extent_protocol::OK)
+    if (attrCache.find(inum) == attrCache.end())
     {
-        r = IOERR;
-        goto release;
+        if (ec->getattr(inum, a) != extent_protocol::OK)
+        {
+            r = IOERR;
+            goto release;
+        }
+        attrCache.emplace(inum, a);
+    }
+    else
+    {
+        a = attrCache.find(inum)->second;
     }
     din.atime = a.atime;
     din.mtime = a.mtime;
@@ -144,17 +175,33 @@ int chfs_client::setattr(inum ino, size_t size)
 
     printf("setattr %016llx\n", ino);
     extent_protocol::attr a;
-    if (ec->getattr(ino, a) != extent_protocol::OK)
+    if (attrCache.find(ino) == attrCache.end())
     {
-        r = IOERR;
-        return r;
+        if (ec->getattr(ino, a) != extent_protocol::OK)
+        {
+            r = IOERR;
+            return r;
+        }
+        attrCache.emplace(ino, a);
+    }
+    else
+    {
+        a = attrCache.find(ino)->second;
     }
 
     std::string buf;
-    if (ec->get(ino, buf) != extent_protocol::OK)
+    if (contentCache.find(ino) == contentCache.end())
     {
-        r = IOERR;
-        return r;
+        if (ec->get(ino, buf) != extent_protocol::OK)
+        {
+            r = IOERR;
+            return r;
+        }
+        contentCache.emplace(ino, buf);
+    }
+    else
+    {
+        buf = contentCache.find(ino)->second;
     }
 
     if (a.size < size)
@@ -165,6 +212,8 @@ int chfs_client::setattr(inum ino, size_t size)
         r = IOERR;
         return r;
     }
+    contentCache.erase(ino);
+    contentCache.emplace(ino, buf);
 
     return r;
 }
@@ -190,11 +239,19 @@ int chfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_ou
     }
 
     std::string buf;
-    if (ec->get(parent, buf) != extent_protocol::OK)
+    if (contentCache.find(parent) == contentCache.end())
     {
-        printf("error get, return not OK\n");
-        r = IOERR;
-        return r;
+        if (ec->get(parent, buf) != extent_protocol::OK)
+        {
+            printf("error get, return not OK\n");
+            r = IOERR;
+            return r;
+        }
+        contentCache.emplace(parent, buf);
+    }
+    else
+    {
+        buf = contentCache.find(parent)->second;
     }
 
     if (ec->create(extent_protocol::T_FILE, ino_out) != extent_protocol::OK)
@@ -222,6 +279,9 @@ int chfs_client::create(inum parent, const char *name, mode_t mode, inum &ino_ou
         return r;
     }
 
+    contentCache.erase(parent);
+    contentCache.emplace(parent, buf);
+
     return r;
 }
 
@@ -246,11 +306,19 @@ int chfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out
     }
 
     std::string buf;
-    if (ec->get(parent, buf) != extent_protocol::OK)
+    if (contentCache.find(parent) == contentCache.end())
     {
-        printf("error get, return not OK\n");
-        r = IOERR;
-        return r;
+        if (ec->get(parent, buf) != extent_protocol::OK)
+        {
+            printf("error get, return not OK\n");
+            r = IOERR;
+            return r;
+        }
+        contentCache.emplace(parent, buf);
+    }
+    else
+    {
+        buf = contentCache.find(parent)->second;
     }
 
     if (ec->create(extent_protocol::T_DIR, ino_out) != extent_protocol::OK)
@@ -277,6 +345,9 @@ int chfs_client::mkdir(inum parent, const char *name, mode_t mode, inum &ino_out
         r = IOERR;
         return r;
     }
+
+    contentCache.erase(parent);
+    contentCache.emplace(parent, buf);
 
     return r;
 }
@@ -320,11 +391,19 @@ int chfs_client::readdir(inum dir, std::list<dirent> &list)
      */
 
     extent_protocol::attr a;
-    if (ec->getattr(dir, a) != extent_protocol::OK)
+    if (attrCache.find(dir) == attrCache.end())
     {
-        printf("error getting attr, return not OK\n");
-        r = IOERR;
-        return r;
+        if (ec->getattr(dir, a) != extent_protocol::OK)
+        {
+            printf("error getting attr, return not OK\n");
+            r = IOERR;
+            return r;
+        }
+        attrCache.emplace(dir, a);
+    }
+    else
+    {
+        a = attrCache.find(dir)->second;
     }
 
     if (a.type != extent_protocol::T_DIR)
@@ -335,11 +414,19 @@ int chfs_client::readdir(inum dir, std::list<dirent> &list)
     }
 
     std::string buf;
-    if (ec->get(dir, buf) != extent_protocol::OK)
+    if (contentCache.find(dir) == contentCache.end())
     {
-        printf("error get, return not OK\n");
-        r = IOERR;
-        return r;
+        if (ec->get(dir, buf) != extent_protocol::OK)
+        {
+            printf("error get, return not OK\n");
+            r = IOERR;
+            return r;
+        }
+        contentCache.emplace(dir, buf);
+    }
+    else
+    {
+        buf = contentCache.find(dir)->second;
     }
 
     std::size_t begin = 0;
@@ -366,17 +453,33 @@ int chfs_client::read(inum ino, size_t size, off_t off, std::string &data)
      */
 
     extent_protocol::attr a;
-    if (ec->getattr(ino, a) != extent_protocol::OK)
+    if (attrCache.find(ino) == attrCache.end())
     {
-        r = IOERR;
-        return r;
+        if (ec->getattr(ino, a) != extent_protocol::OK)
+        {
+            r = IOERR;
+            return r;
+        }
+        attrCache.emplace(ino, a);
+    }
+    else
+    {
+        a = attrCache.find(ino)->second;
     }
 
     std::string buf;
-    if (ec->get(ino, buf) != extent_protocol::OK)
+    if (contentCache.find(ino) == contentCache.end())
     {
-        r = IOERR;
-        return r;
+        if (ec->get(ino, buf) != extent_protocol::OK)
+        {
+            r = IOERR;
+            return r;
+        }
+        contentCache.emplace(ino, buf);
+    }
+    else
+    {
+        buf = contentCache.find(ino)->second;
     }
 
     unsigned int maxSize = (a.size - off) > 0 ? (a.size - off - size > 0 ? size : (a.size - off)) : 0;
@@ -398,17 +501,33 @@ int chfs_client::write(inum ino, size_t size, off_t off, const char *data,
      */
 
     extent_protocol::attr a;
-    if (ec->getattr(ino, a) != extent_protocol::OK)
+    if (attrCache.find(ino) == attrCache.end())
     {
-        r = IOERR;
-        return r;
+        if (ec->getattr(ino, a) != extent_protocol::OK)
+        {
+            r = IOERR;
+            return r;
+        }
+        attrCache.emplace(ino, a);
+    }
+    else
+    {
+        a = attrCache.find(ino)->second;
     }
 
     std::string buf;
-    if (ec->get(ino, buf) != extent_protocol::OK)
+    if (contentCache.find(ino) == contentCache.end())
     {
-        r = IOERR;
-        return r;
+        if (ec->get(ino, buf) != extent_protocol::OK)
+        {
+            r = IOERR;
+            return r;
+        }
+        contentCache.emplace(ino, buf);
+    }
+    else
+    {
+        buf = contentCache.find(ino)->second;
     }
 
     std::string dataStr = std::string(data, size);
@@ -432,6 +551,9 @@ int chfs_client::write(inum ino, size_t size, off_t off, const char *data,
         return r;
     }
 
+    contentCache.erase(ino);
+    contentCache.emplace(ino, buf);
+
     return r;
 }
 
@@ -446,11 +568,19 @@ int chfs_client::unlink(inum parent, const char *name)
      */
 
     std::string buf;
-    if (ec->get(parent, buf) != extent_protocol::OK)
+    if (contentCache.find(parent) == contentCache.end())
     {
-        printf("error get, return not OK\n");
-        r = IOERR;
-        return r;
+        if (ec->get(parent, buf) != extent_protocol::OK)
+        {
+            printf("error get, return not OK\n");
+            r = IOERR;
+            return r;
+        }
+        contentCache.emplace(parent, buf);
+    }
+    else
+    {
+        buf = contentCache.find(parent)->second;
     }
 
     std::string newBuf;
@@ -501,6 +631,9 @@ int chfs_client::unlink(inum parent, const char *name)
         return r;
     }
 
+    contentCache.erase(parent);
+    contentCache.emplace(parent, newBuf);
+
     return r;
 }
 
@@ -519,11 +652,19 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
     }
 
     std::string buf;
-    if (ec->get(parent, buf) != extent_protocol::OK)
+    if (contentCache.find(parent) == contentCache.end())
     {
-        printf("error get, return not OK\n");
-        r = IOERR;
-        return r;
+        if (ec->get(parent, buf) != extent_protocol::OK)
+        {
+            printf("error get, return not OK\n");
+            r = IOERR;
+            return r;
+        }
+        contentCache.emplace(parent, buf);
+    }
+    else
+    {
+        buf = contentCache.find(parent)->second;
     }
 
     if (ec->create(extent_protocol::T_SYMLINK, ino_out) != extent_protocol::OK)
@@ -559,6 +700,9 @@ int chfs_client::symlink(const char *link, inum parent, const char *name, inum &
         return r;
     }
 
+    contentCache.erase(parent);
+    contentCache.emplace(parent, newBuf);
+
     return r;
 }
 
@@ -566,17 +710,33 @@ int chfs_client::readlink(inum ino, std::string &link)
 {
     int r = OK;
     extent_protocol::attr a;
-    if (ec->getattr(ino, a) != extent_protocol::OK)
+    if (attrCache.find(ino) == attrCache.end())
     {
-        r = IOERR;
-        return r;
+        if (ec->getattr(ino, a) != extent_protocol::OK)
+        {
+            r = IOERR;
+            return r;
+        }
+        attrCache.emplace(ino, a);
+    }
+    else
+    {
+        a = attrCache.find(ino)->second;
     }
 
     std::string buf;
-    if (ec->get(ino, buf) != extent_protocol::OK)
+    if (contentCache.find(ino) == contentCache.end())
     {
-        r = IOERR;
-        return r;
+        if (ec->get(ino, buf) != extent_protocol::OK)
+        {
+            r = IOERR;
+            return r;
+        }
+        contentCache.emplace(ino, buf);
+    }
+    else
+    {
+        buf = contentCache.find(ino)->second;
     }
 
     link = buf;

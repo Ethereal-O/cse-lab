@@ -23,7 +23,7 @@ public:
         extent_protocol::attr attr;
         command_type tp;
 
-        bool done;
+        bool done = false;
         std::mutex mtx;             // protect the struct
         std::condition_variable cv; // notify the caller
     };
@@ -33,7 +33,8 @@ public:
     uint32_t type;
     extent_protocol::extentid_t id;
     std::string buf;
-    std::shared_ptr<result> res;
+    // std::shared_ptr<result> res;
+    result *res;
 
     chfs_command_raft();
 
