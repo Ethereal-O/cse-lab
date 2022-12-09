@@ -84,11 +84,13 @@ void chfs_state_machine::apply_log(raft_command &cmd)
 {
     chfs_command_raft &chfs_cmd = dynamic_cast<chfs_command_raft &>(cmd);
     // Lab3: Your code here
-
+    
     mtx.lock();
+    
     std::unique_lock<std::mutex> lock(chfs_cmd.res->mtx);
     if (chfs_cmd.res->done && (chfs_cmd.cmd_tp == chfs_command_raft::command_type::CMD_GET || chfs_cmd.cmd_tp == chfs_command_raft::command_type::CMD_GETA))
     {
+        chfs_cmd.res->cv.notify_all();
         mtx.unlock();
         return;
     }
@@ -106,6 +108,7 @@ void chfs_state_machine::apply_log(raft_command &cmd)
 
     case chfs_command_raft::command_type::CMD_PUT:
     {
+        printf("apply_log put %d\n",chfs_cmd.buf.size());
         int r;
         es.put(chfs_cmd.id, chfs_cmd.buf, r);
         chfs_cmd.res->tp = chfs_command_raft::command_type::CMD_PUT;

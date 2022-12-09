@@ -14,7 +14,7 @@ chfs_raft *extent_server_dist::leader() const
     }
 }
 
-#define wait_time 11000
+#define wait_time 1000
 
 int extent_server_dist::create(uint32_t type, extent_protocol::extentid_t &id)
 {
@@ -56,6 +56,7 @@ int extent_server_dist::put(extent_protocol::extentid_t id, std::string buf, int
     cmd.id = id;
     cmd.buf = buf;
     int temp_idx, temp_term;
+    printf("extent_server_dist::put begin%d\n", cmd.buf.size());
     bool ret = this->leader()->new_command(cmd, temp_term, temp_idx);
     if (ret)
     {
@@ -71,6 +72,7 @@ int extent_server_dist::put(extent_protocol::extentid_t id, std::string buf, int
 #ifdef DEBUG_PART5
     printf("extent_server_dist::put return %d\n", cmd.res->done);
 #endif
+printf("extent_server_dist::put return %d\n", cmd.res->done);
     return extent_protocol::OK;
 }
 

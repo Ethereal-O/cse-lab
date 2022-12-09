@@ -25,8 +25,6 @@
 // #define DEBUG_PART5
 // #define DEBUG_LAB4
 
-
-
 template <typename state_machine, typename command>
 class raft
 {
@@ -292,6 +290,10 @@ bool raft<state_machine, command>::new_command(command cmd, int &term, int &inde
         RAFT_LOG("new_command %d %d", current_term, 100 * my_id);
 #endif
 
+#ifdef DEBUG_LAB4
+        RAFT_LOG("new_command %d %lf", current_term, (double)clock() / CLOCKS_PER_SEC);
+#endif
+
         storage->logs.push_back(new_log);
         storage->flush();
 
@@ -401,6 +403,9 @@ int raft<state_machine, command>::append_entries(append_entries_args<command> ar
 #ifdef DEBUG_PART1
     RAFT_LOG("%d append_entries", my_id);
 #endif
+#ifdef DEBUG_LAB4
+    RAFT_LOG("%d append_entries at %lf", my_id, (double)clock() / CLOCKS_PER_SEC);
+#endif
 
     if (arg.term < current_term)
     {
@@ -454,6 +459,9 @@ void raft<state_machine, command>::handle_append_entries_reply(int node, const a
     mtx.lock();
 #ifdef DEBUG_PART1
     RAFT_LOG("%d handle_append_entries_reply", my_id);
+#endif
+#ifdef DEBUG_LAB4
+    RAFT_LOG("%d handle_append_entries_reply at %lf", my_id, (double)clock() / CLOCKS_PER_SEC);
 #endif
     if (role != leader)
         goto release;
@@ -634,7 +642,7 @@ void raft<state_machine, command>::run_background_commit()
 
     // Only work for the leader.
 
-#define sleep_time 100
+#define sleep_time 10
 
     while (true)
     {
@@ -667,6 +675,9 @@ void raft<state_machine, command>::run_background_commit()
                     continue;
                 }
 
+#ifdef DEBUG_LAB4
+                RAFT_LOG("send logs %lf",(double)clock()/CLOCKS_PER_SEC);
+#endif
                 append_entries_args<command> args;
                 args.term = current_term;
                 args.leader_id = my_id;
@@ -693,7 +704,7 @@ void raft<state_machine, command>::run_background_apply()
 
     // Work for all the nodes.
 
-#define sleep_time 30
+#define sleep_time 10
 
     while (true)
     {
