@@ -101,7 +101,6 @@ public:
   int readlink(inum, std::string &);
 
 private:
-  std::map<inum, extent_protocol::attr> attrCache;
   std::map<inum, std::string> contentCache;
 };
 
