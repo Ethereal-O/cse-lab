@@ -16,6 +16,7 @@
 #include "raft_protocol.h"
 #include "raft_state_machine.h"
 
+// #define IMMEDIATE_FLUSH
 // #define DEBUG_PART1
 // #define DEBUG_PART2
 // #define DEBUG_PART3
@@ -211,6 +212,7 @@ raft<state_machine, command>::raft(rpcs *server, std::vector<rpcc *> clients, in
 template <typename state_machine, typename command>
 raft<state_machine, command>::~raft()
 {
+    storage->flush();
     if (background_ping)
     {
         delete background_ping;
@@ -288,7 +290,9 @@ bool raft<state_machine, command>::new_command(command cmd, int &term, int &inde
 #endif
 
         storage->logs.push_back(new_log);
+#ifdef IMMEDIATE_FLUSH
         storage->flush();
+#endif
 
         term = current_term;
         index = storage->logs.size();
@@ -343,7 +347,9 @@ int raft<state_machine, command>::request_vote(request_vote_args args, request_v
     if (can_vote(args))
     {
         storage->vote_for = args.candidate_id;
+#ifdef IMMEDIATE_FLUSH
         storage->flush();
+#endif
 
         reply.vote_granted = true;
         vote_for = args.candidate_id;
@@ -422,7 +428,9 @@ int raft<state_machine, command>::append_entries(append_entries_args<command> ar
 
         storage->logs.erase(storage->logs.begin() + arg.prev_log_index, storage->logs.end());
         storage->logs.insert(storage->logs.end(), arg.entries.begin(), arg.entries.end());
+#ifdef IMMEDIATE_FLUSH
         storage->flush();
+#endif
         reply.success = true;
         if (arg.leader_commit > commit_index)
             commit_index = std::min(arg.leader_commit, (int)storage->logs.size());
@@ -786,7 +794,9 @@ void raft<state_machine, command>::begin_new_term(int term)
 {
     storage->current_term = term;
     storage->vote_for = -1;
+#ifdef IMMEDIATE_FLUSH
     storage->flush();
+#endif
 
     become_follower();
     current_term = term;
